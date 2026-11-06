@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "device": "desktop",
+  "root": { "route": "/admin" },
+  "sections": [
+    { "id": "access", "name": "Access" },
+    { "id": "home", "name": "Dashboards" },
+    { "id": "setup", "name": "Assessment setup" },
+    { "id": "intake", "name": "Upload and mapping" },
+    { "id": "review", "name": "Teacher review" },
+    { "id": "release", "name": "Assignment, verification and release" },
+    { "id": "public", "name": "Student and guardian" },
+    { "id": "system", "name": "Reports and system" }
+  ],
+  "screens": {
+    "scr_login": { "name": "UI-01 Login", "route": "/login", "section": "access", "state": {} },
+
+    "scr_admin": { "name": "UI-02 Admin overview", "route": "/admin", "section": "home", "state": {} },
+    "scr_admin_empty": { "name": "UI-02 Admin overview · no uploads yet", "route": "/admin", "section": "home", "state": { "emptyWorkspace": true } },
+    "scr_teacher": { "name": "UI-03 Teacher dashboard", "route": "/teacher", "section": "home", "state": { "role": "teacher" } },
+
+    "scr_assessments": { "name": "Assessments list", "route": "/assessments", "section": "setup", "state": {} },
+    "scr_create": { "name": "UI-04 Create assessment", "route": "/assessments/new", "section": "setup", "state": {} },
+    "scr_create_errors": { "name": "UI-04 Create assessment · validation errors", "route": "/assessments/new", "section": "setup", "state": { "showErrors": true } },
+    "scr_paper_review": { "name": "UI-05 Question paper · extraction needs review", "route": "/assessments/asm-sst8-ut2/setup/paper", "section": "setup", "state": { "role": "teacher", "userId": "u-kavita" } },
+    "scr_paper_confirm_error": { "name": "UI-05 Question paper · confirm blocked", "route": "/assessments/asm-sst8-ut2/setup/paper", "section": "setup", "state": { "role": "teacher", "userId": "u-kavita", "confirmError": true } },
+    "scr_paper_locked": { "name": "UI-05 Question paper · locked after upload", "route": "/assessments/asm-sci10-mid/setup/paper", "section": "setup", "state": { "role": "teacher" } },
+    "scr_key_choose": { "name": "UI-06 Answer key · choose AI or manual", "route": "/assessments/asm-sci9-ut2/setup/answer-key", "section": "setup", "state": { "role": "teacher" } },
+    "scr_key_manual": { "name": "UI-07 Manual answer key upload", "route": "/assessments/asm-sci9-ut2/setup/answer-key", "section": "setup", "state": { "role": "teacher", "mode": "manual" } },
+    "scr_key_approved": { "name": "UI-06 Answer key · approved", "route": "/assessments/asm-sci10-mid/setup/answer-key", "section": "setup", "state": { "role": "teacher" } },
+    "scr_rubric_mismatch": { "name": "UI-08 Rubric · marks mismatch", "route": "/assessments/asm-mat9-mid/setup/rubric", "section": "setup", "state": { "role": "teacher", "userId": "u-ananya", "approveError": true } },
+    "scr_rubric_approved": { "name": "UI-08 Rubric · approved", "route": "/assessments/asm-sci10-mid/setup/rubric", "section": "setup", "state": { "role": "teacher" } },
+    "scr_answer_keys": { "name": "Answer keys list", "route": "/teacher/answer-keys", "section": "setup", "state": { "role": "teacher" } },
+    "scr_rubrics": { "name": "Rubric management list", "route": "/teacher/rubrics", "section": "setup", "state": { "role": "teacher" } },
+    "scr_detail": { "name": "UI-09 Assessment detail", "route": "/assessments/asm-sci10-mid", "section": "setup", "state": {} },
+    "scr_detail_setup": { "name": "UI-09 Assessment detail · setup incomplete", "route": "/assessments/asm-sci9-ut2", "section": "setup", "state": {} },
+
+    "scr_uploads": { "name": "Uploads list", "route": "/uploads", "section": "intake", "state": {} },
+    "scr_upload_new": { "name": "UI-10 Bulk PDF upload", "route": "/uploads/new", "section": "intake", "state": {} },
+    "scr_batch_live": { "name": "UI-11 Batch processing · live", "route": "/uploads/bt-live", "section": "intake", "state": { "liveBatch": true } },
+    "scr_batch_partial": { "name": "UI-11 Batch · partial success", "route": "/uploads/bt-sci-b", "section": "intake", "state": {} },
+    "scr_unmatched": { "name": "UI-12 Unmatched barcodes", "route": "/unmatched", "section": "intake", "state": {} },
+    "scr_unmatched_dup": { "name": "UI-12 Unmatched · duplicate barcode", "route": "/unmatched", "section": "intake", "state": { "itemId": "um-3" } },
+    "scr_unmatched_empty": { "name": "UI-12 Unmatched · all identified", "route": "/unmatched", "section": "intake", "state": { "allMapped": true } },
+    "scr_sheets": { "name": "UI-13 Answer sheet list", "route": "/assessments/asm-sci10-mid/sheets", "section": "intake", "state": {} },
+    "scr_queue": { "name": "UI-14 Processing queue", "route": "/queue", "section": "intake", "state": {} },
+    "scr_queue_paused": { "name": "UI-14 Processing queue · paused", "route": "/queue", "section": "intake", "state": { "queuePaused": true } },
+    "scr_students": { "name": "Students", "route": "/students", "section": "intake", "state": {} },
+
+    "scr_pending": { "name": "Pending verification", "route": "/teacher/pending", "section": "review", "state": { "role": "teacher" } },
+    "scr_review": { "name": "UI-15 Review workspace", "route": "/review/as-sci10-mid-10a-17", "section": "review", "state": { "role": "teacher" } },
+    "scr_review_flag": { "name": "UI-16 Question marks · low confidence", "route": "/review/as-sci10-mid-10a-20", "section": "review", "state": { "role": "teacher" } },
+    "scr_review_feedback": { "name": "UI-17 Feedback editor", "route": "/review/as-sci10-mid-10a-17", "section": "review", "state": { "role": "teacher", "tab": "feedback" } },
+    "scr_review_verify": { "name": "UI-15 Verify dialog", "route": "/review/as-sci10-mid-10a-17", "section": "review", "state": { "role": "teacher", "verifyOpen": true } },
+    "scr_review_verified": { "name": "UI-15 Verified copy", "route": "/review/as-sci10-mid-10a-03", "section": "review", "state": { "role": "teacher" } },
+    "scr_review_reopened": { "name": "UI-15 Reopened copy", "route": "/review/as-sci10-mid-10a-19", "section": "review", "state": { "role": "teacher" } },
+    "scr_review_similar": { "name": "UI-18 Similar correction suggestions", "route": "/review/as-sci10-mid-10a-17", "section": "review", "state": { "role": "teacher", "similarOpen": true } },
+    "scr_verified": { "name": "Verified copies", "route": "/teacher/verified", "section": "review", "state": { "role": "teacher" } },
+
+    "scr_teachers": { "name": "UI-19 Teacher assignment", "route": "/teachers", "section": "release", "state": {} },
+    "scr_verification": { "name": "UI-20 Verification management", "route": "/verification", "section": "release", "state": {} },
+    "scr_distribution": { "name": "UI-21 SMS distribution", "route": "/distribution", "section": "release", "state": {} },
+    "scr_distribution_preview": { "name": "UI-21 SMS preview", "route": "/distribution", "section": "release", "state": { "includeUnverified": true, "previewOpen": true } },
+    "scr_distribution_report": { "name": "UI-21 Delivery report · partial failure", "route": "/distribution", "section": "release", "state": { "tab": "report" } },
+
+    "scr_student_result": { "name": "UI-22 Student result", "route": "/result/as-sci10-mid-10a-02", "section": "public", "state": {} },
+    "scr_parent_otp": { "name": "UI-23 Guardian link · code", "route": "/r/fqp3wvk2vv", "section": "public", "device": "mobile", "state": {} },
+    "scr_parent_result": { "name": "UI-23 Guardian result · not verified", "route": "/r/mcdt7gnagh", "section": "public", "device": "mobile", "state": { "skipOtp": true } },
+
+    "scr_reports": { "name": "UI-24 Reports and analytics", "route": "/reports", "section": "system", "state": {} },
+    "scr_audit": { "name": "UI-25 Audit log", "route": "/audit", "section": "system", "state": {} },
+    "scr_notifications": { "name": "Notifications", "route": "/notifications", "section": "system", "state": { "role": "teacher" } },
+    "scr_settings": { "name": "Settings", "route": "/settings", "section": "system", "state": {} }
+  },
+  "edges": [],
+  "layers": []
+}
