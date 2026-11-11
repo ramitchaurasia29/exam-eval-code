@@ -7,6 +7,7 @@ import { ButtonLink, EmptyState } from "./components/ui";
 import Login from "./screens/Login";
 import StudentResult from "./screens/StudentResult";
 import ParentResult from "./screens/ParentResult";
+import PrincipalDashboard from "./screens/PrincipalDashboard";
 // Admin + teacher
 import AdminOverview from "./screens/AdminOverview";
 import TeacherDashboard from "./screens/TeacherDashboard";
@@ -20,6 +21,7 @@ import Rubric from "./screens/Rubric";
 import SetupList from "./screens/SetupList";
 import UnmatchedQueue from "./screens/UnmatchedQueue";
 import Students from "./screens/Students";
+import CheckedCopy from "./screens/CheckedCopy";
 import TeacherAssignment from "./screens/TeacherAssignment";
 import Verification from "./screens/Verification";
 import Distribution from "./screens/Distribution";
@@ -65,6 +67,7 @@ export default function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/result/:sheetId" element={<StudentResult />} />
       <Route path="/r/:token" element={<ParentResult />} />
+      <Route path="/principal" element={<PrincipalDashboard />} />
 
       <Route element={<Shell />}>
         {/* Exam Cell */}
@@ -84,6 +87,7 @@ export default function AppRoutes() {
         <Route path="/unmatched" element={<UnmatchedQueue />} />
         <Route path="/queue" element={<UploadsRedirect />} />
         <Route path="/students" element={<Students />} />
+        <Route path="/students/:studentId/copies/:sheetId" element={<CheckedCopy />} />
         <Route path="/teachers" element={<TeacherAssignment />} />
         <Route path="/verification" element={<Verification />} />
         <Route path="/distribution" element={<Distribution />} />
