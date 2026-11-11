@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
+import type { ElementType } from "react";
+import type { Embed } from "../components/embed";
 import { useNavigate, useParams } from "react-router-dom";
 import { Check, ChevronDown, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useStore } from "../data/store";
@@ -8,8 +10,10 @@ import AssessmentHeader, { useAssessmentParam } from "../components/AssessmentHe
 import { Banner, Button, Dialog, EmptyState, Field, ICON, IconButton, Input, Meta, Page, Panel, Radio, Skeleton, StatStrip } from "../components/ui";
 import { useScreenInit } from "../useScreenInit";
 
-export default function Rubric() {
-  const { id } = useParams();
+export default function Rubric({ embed }: { embed?: Embed }) {
+  const params = useParams();
+  const id = embed?.id ?? params.id;
+  const Root: ElementType = embed ? Fragment : Page;
   const assessment = useAssessmentParam(id);
   const { state, actions } = useStore();
   const navigate = useNavigate();
@@ -33,16 +37,16 @@ export default function Rubric() {
     if (!result.ok) { setError(result.error); setReevaluateOpen(false); return; }
     setError(""); setReevaluateOpen(false);
     actions.toast(`Rubric approved (v${assessment.rubric.version + 1})`, { tone: "success" });
-    navigate(`/assessments/${assessment.id}`);
+    if (embed) embed.onNext(); else navigate(`/assessments/${assessment.id}`);
   };
   const goEdit = () => {
     actions.updateAssessment(assessment.id, { rubric: { ...assessment.rubric, status: "draft" } });
     setError("");
   };
 
-  return <Page>
-    <AssessmentHeader assessment={assessment} tab="rubric" />
-    {assessment.answerKey.status !== "approved" ? <Panel className="max-w-3xl"><EmptyState title="Approve the answer key first" body="The rubric uses the approved answers as its marking reference. Complete the answer key step before generating criteria." action={<Button variant="primary" onClick={() => navigate(`/assessments/${assessment.id}/setup/answer-key`)}>Go to answer key</Button>} /></Panel> : <>
+  return <Root>
+    {!embed && <AssessmentHeader assessment={assessment} tab="rubric" />}
+    {assessment.answerKey.status !== "approved" ? <Panel className="max-w-3xl"><EmptyState title="Approve the answer key first" body="The rubric uses the approved answers as its marking reference. Complete the answer key step before generating criteria." action={<Button variant="primary" onClick={() => embed ? embed.goStep("answer-key") : navigate(`/assessments/${assessment.id}/setup/answer-key`)}>Go to answer key</Button>} /></Panel> : <>
       {error && <Banner tone="danger" className="mb-4">{error}</Banner>}
       {assessment.rubric.status === "none" && <Panel className="max-w-3xl" title="Create a marking rubric"><EmptyState title="No rubric yet" body="Generate criteria from the approved answer key, then adjust each question's marks before approval." action={<Button variant="primary" icon={<RefreshCw size={15} strokeWidth={ICON} />} onClick={() => { setError(""); actions.generateRubric(assessment.id); }}>Generate rubric</Button>} /></Panel>}
       {assessment.rubric.status === "generating" && <Panel title="Generating rubric" className="max-w-4xl"><div className="space-y-4" aria-live="polite"><p className="text-sm text-ink-2">Drafting criteria for {assessment.questions.length} questions…</p>{assessment.questions.map((q) => <div key={q.id} className="space-y-2 border-b border-border pb-4"><Skeleton className="h-4 w-32" /><Skeleton className="h-12 w-full" /></div>)}</div></Panel>}
@@ -90,6 +94,6 @@ export default function Rubric() {
       <p className="mb-4">Choose how the new rubric version applies to copies that already have results.</p>
       <div className="space-y-2"><Radio name="reevaluate-choice" checked={choice === "none"} onChange={() => setChoice("none")} label="Keep existing results" description="No copies will be re-evaluated." /><Radio name="reevaluate-choice" checked={choice === "unverified"} onChange={() => setChoice("unverified")} label="Re-evaluate copies not yet verified" description={`${unverifiedCopies} copies will be queued.`} /><Radio name="reevaluate-choice" checked={choice === "all"} onChange={() => setChoice("all")} label="Re-evaluate all copies" description={`${copies.length} copies will be queued. Verified copies reopen and need re-verification.`} /></div>
     </Dialog>
-  </Page>;
+  </Root>;
 }
 

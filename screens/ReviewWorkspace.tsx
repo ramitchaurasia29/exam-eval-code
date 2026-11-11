@@ -55,7 +55,7 @@ import {
 import { useScreenInit } from "../useScreenInit";
 
 type Pane = "sheet" | "marking";
-type RightTab = "questions" | "feedback" | "history";
+type RightTab = "questions" | "history";
 
 export default function ReviewWorkspace() {
   const { sheetId } = useParams();
@@ -130,7 +130,7 @@ export default function ReviewWorkspace() {
   // Queue for prev / next copy
   const queue = useMemo(() => {
     if (!sheet) return [] as AnswerSheet[];
-    const pool = state.sheets.filter((s) => s.assessmentId === sheet.assessmentId && s.evaluation === "evaluated" && (me.role === "admin" || s.teacherId === me.id));
+    const pool = state.sheets.filter((s) => s.assessmentId === sheet.assessmentId && (me.role === "admin" || s.teacherId === me.id || s.teacherId === null));
     const roll = (s: AnswerSheet) => {
       const st = state.students.find((x) => x.id === s.studentId)!;
       return `${st.section}${String(st.roll).padStart(3, "0")}`;
@@ -138,7 +138,7 @@ export default function ReviewWorkspace() {
     return pool.sort((a, b) => (roll(a) < roll(b) ? -1 : 1));
   }, [state.sheets, state.students, sheet, me]);
   const idx = sheet ? queue.findIndex((s) => s.id === sheet.id) : -1;
-  const nextPending = queue.slice(idx + 1).concat(queue.slice(0, Math.max(0, idx))).find((s) => s.verification !== "verified" && s.id !== sheet?.id);
+  const nextPending = queue.slice(idx + 1).concat(queue.slice(0, Math.max(0, idx))).find((s) => s.evaluation === "evaluated" && s.verification !== "verified" && s.id !== sheet?.id);
 
   // Keyboard shortcuts
   const qIndex = sheet ? sheet.questions.findIndex((q) => q.qid === activeQid) : -1;
@@ -195,7 +195,7 @@ export default function ReviewWorkspace() {
   const total = sheetTotal(sheet);
   const aiTotal = sheetAiTotal(sheet);
   const unresolved = sheet.questions.filter((q) => q.review && !q.edited && !q.accepted);
-  const backTo = me.role === "admin" ? "/verification" : "/teacher/pending";
+  const backTo = `/assessments/${sheet.assessmentId}/students`;
   const pendingSuggestions = state.suggestions.filter((g) => g.sourceSheetId === sheet.id && g.status === "pending");
   const verifier = state.users.find((u) => u.id === sheet.verifiedBy);
   const assignedTeacher = state.users.find((u) => u.id === sheet.teacherId);
@@ -227,7 +227,7 @@ export default function ReviewWorkspace() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
               <h1 className="truncate text-base font-semibold tracking-tight text-ink">{student.name}</h1>
-              <span className="text-[13px] text-ink-3">Class {student.grade}{student.section} · Roll {student.roll}</span>
+              <span className="text-[13px] text-ink-3">Class {student.grade}{student.section} · Roll no {student.roll}</span>
               <span className="hidden font-mono text-xs text-ink-3 md:inline">{student.barcode}</span>
             </div>
             <p className="truncate text-xs text-ink-3">{assessment.name} · {assessment.subject} · Version {sheet.version} · Rubric v{sheet.rubricVersion}</p>
@@ -361,7 +361,7 @@ export default function ReviewWorkspace() {
             {/* ---------------- Right: marking ---------------- */}
             <section aria-label="Marking" className={cx("min-h-0 flex-col bg-surface lg:flex lg:flex-1", pane === "marking" ? "flex flex-1" : "hidden")}>
               <div className="flex shrink-0 items-center gap-1 border-b border-border px-3 sm:px-4">
-                {(["questions", "feedback", "history"] as RightTab[]).map((t) => (
+                {(["questions", "history"] as RightTab[]).map((t) => (
                   <button
                     key={t}
                     role="tab"
@@ -369,7 +369,7 @@ export default function ReviewWorkspace() {
                     onClick={() => setTab(t)}
                     className={cx("-mb-px h-10 border-b-2 px-2.5 text-[13px]", tab === t ? "border-primary font-medium text-ink" : "border-transparent text-ink-3 hover:text-ink")}
                   >
-                    {t === "questions" ? `Questions` : t === "feedback" ? "Overall feedback" : "History"}
+                    {t === "questions" ? `Questions` : "History"}
                     {t === "questions" && unresolved.length > 0 && <span className="ml-1.5 rounded-sm bg-warning-soft px-1.5 text-xs text-warning tabular-nums">{unresolved.length} flagged</span>}
                   </button>
                 ))}
@@ -403,28 +403,6 @@ export default function ReviewWorkspace() {
                     )}
                   </div>
                 </>
-              )}
-              {tab === "feedback" && (
-                <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-                  <Field label="Overall feedback" htmlFor="general-fb" helper="Shown to the student and guardian at the top of the result">
-                    <Textarea id="general-fb" rows={6} value={sheet.generalFeedback} disabled={!canEdit} onChange={(e) => actions.setGeneralFeedback(sheet.id, e.target.value)} />
-                  </Field>
-                  <h3 className="mt-6 mb-2 text-[13px] font-semibold text-ink">Question feedback</h3>
-                  <ul className="divide-y divide-border rounded-md border border-border">
-                    {sheet.questions.map((qe) => {
-                      const qq = assessment.questions.find((q) => q.id === qe.qid)!;
-                      return (
-                        <li key={qe.qid}>
-                          <button onClick={() => { setActiveQid(qe.qid); setTab("questions"); }} className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-subtle">
-                            <span className="w-9 shrink-0 text-[13px] font-semibold text-ink">Q{qq.number}</span>
-                            <span className="flex-1 text-[13px] text-ink-2">{qe.feedback || <span className="text-ink-4">No feedback</span>}</span>
-                            <span className="shrink-0 text-xs tabular-nums text-ink-3">{qe.awarded}/{qq.marks}</span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
               )}
               {tab === "history" && <CopyHistory sheet={sheet} />}
 
@@ -766,18 +744,6 @@ function QuestionPanel({
           {qq.alternatives.length > 0 && <p className="mt-2 text-xs text-ink-3">Also accepted: {qq.alternatives.join("; ")}</p>}
         </div>
       )}
-
-      {/* Feedback */}
-      <div className="mt-5">
-        <Field label="Feedback for this question" htmlFor="q-feedback">
-          <Textarea id="q-feedback" rows={2} value={qe.feedback} disabled={!canEdit} onChange={(e) => actions.updateEval(sheetId, qe.qid, { feedback: e.target.value })} />
-        </Field>
-      </div>
-      <div className="mt-3">
-        <Field label="Private comment" htmlFor="q-comment" optional helper="Visible to teachers and the Exam Cell, never to students">
-          <Textarea id="q-comment" rows={2} value={qe.comment ?? ""} disabled={!canEdit} onChange={(e) => actions.updateEval(sheetId, qe.qid, { comment: e.target.value })} />
-        </Field>
-      </div>
     </div>
   );
 }
@@ -849,7 +815,7 @@ function SimilarDrawer({ open, onClose, sheet, qid }: { open: boolean; onClose: 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                       <span className="text-[13px] font-medium text-ink">{st.name}</span>
-                      <span className="text-xs text-ink-3">Class {st.grade}{st.section} · Roll {st.roll}</span>
+                      <span className="text-xs text-ink-3">Class {st.grade}{st.section} · Roll no {st.roll}</span>
                       {t.verification === "verified" && isPending && <Tag tone="warning">Verified, will reopen</Tag>}
                       {!isPending && <Tag tone={g.status === "approved" ? "success" : "muted"}>{g.status === "approved" ? "Applied" : "Rejected"}</Tag>}
                     </div>
@@ -884,7 +850,7 @@ function CopyHistory({ sheet }: { sheet: AnswerSheet }) {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
       <div className="mb-4 flex items-center gap-4 rounded-md border border-border px-3 py-2.5">
-        <Barcode value={st.barcode} height={22} />
+        <Barcode value={st.barcode} height={48} />
         <dl className="grid flex-1 grid-cols-2 gap-x-4 gap-y-1 text-xs">
           <dt className="text-ink-3">Evaluation version</dt><dd className="text-ink">{sheet.version}</dd>
           <dt className="text-ink-3">Model</dt><dd className="truncate text-ink">{sheet.model}</dd>

@@ -11,28 +11,14 @@ import { BadgeCheck, FileWarning, ShieldAlert } from "lucide-react";
 import type { AnswerSheet, Assessment, Distribution, Student } from "../data/types";
 import { hash } from "../data/seed";
 import { latestDistribution, type Tone } from "../data/selectors";
+import { QRCodeSVG } from "qrcode.react";
 import { cx } from "./ui";
 
-/* Barcode ------------------------------------------------------------ */
+/* QR code ------------------------------------------------------------- */
 export function Barcode({ value, height = 28, className, showText = true }: { value: string; height?: number; className?: string; showText?: boolean }) {
-  const h = hash(value);
-  const bars: number[] = [];
-  let x = h;
-  for (let i = 0; i < 46; i++) {
-    x = (x * 1103515245 + 12345) >>> 0;
-    bars.push(1 + ((x >>> 16) % 3));
-  }
-  let pos = 0;
-  const rects = bars.map((w, i) => {
-    const r = i % 2 === 0 ? <rect key={i} x={pos} y={0} width={w} height={height} /> : null;
-    pos += w;
-    return r;
-  });
   return (
     <span className={cx("inline-flex flex-col items-center", className)}>
-      <svg width={pos} height={height} viewBox={`0 0 ${pos} ${height}`} className="fill-ink" aria-label={`Barcode ${value}`} role="img">
-        {rects}
-      </svg>
+      <QRCodeSVG value={value} size={height} level="M" marginSize={0} className="fill-ink" aria-label={`QR code ${value}`} role="img" />
       {showText && <span className="mt-0.5 font-mono text-[9px] tracking-wider text-ink-2">{value}</span>}
     </span>
   );
@@ -227,7 +213,7 @@ export function ScanPage({
             <p className="truncate">{assessment.name} · Class {assessment.grade}</p>
           </div>
           <div className="text-right">
-            {page === 1 && !thumb ? <Barcode value={student.barcode} height={18} /> : <span className="font-mono">Page {page}</span>}
+            {page === 1 && !thumb ? <Barcode value={student.barcode} height={40} /> : <span className="font-mono">Page {page}</span>}
           </div>
         </div>
 

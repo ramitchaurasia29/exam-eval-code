@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
+import type { ElementType } from "react";
+import type { Embed } from "../components/embed";
 import { useNavigate, useParams } from "react-router-dom";
 import { Check, ChevronLeft, ChevronRight, FileText, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { useStore } from "../data/store";
@@ -8,8 +10,10 @@ import AssessmentHeader, { useAssessmentParam } from "../components/AssessmentHe
 import { Banner, Button, Dialog, DropZone, EmptyState, Field, ICON, IconButton, Input, Page, Panel, Select, Skeleton, Textarea, cx } from "../components/ui";
 import { useScreenInit } from "../useScreenInit";
 
-export default function QuestionPaper() {
-  const { id } = useParams();
+export default function QuestionPaper({ embed }: { embed?: Embed }) {
+  const params = useParams();
+  const id = embed?.id ?? params.id;
+  const Root: ElementType = embed ? Fragment : Page;
   const assessment = useAssessmentParam(id);
   const { state, actions } = useStore();
   const navigate = useNavigate();
@@ -56,7 +60,7 @@ export default function QuestionPaper() {
     }
     setEditing(false); setOriginalQuestions(null);
     actions.toast("Questions confirmed", { tone: "success" });
-    navigate(`/assessments/${assessment.id}/setup/answer-key`);
+    if (embed) embed.onNext(); else navigate(`/assessments/${assessment.id}/setup/answer-key`);
   };
   const remove = (q: Question) => {
     const previous = questions;
@@ -72,8 +76,8 @@ export default function QuestionPaper() {
     actions.toast(`Question paper replaced (v${(assessment.paper?.version ?? 0) + 1})`, { tone: "success" });
   };
 
-  return <Page>
-    <AssessmentHeader assessment={assessment} tab="paper" />
+  return <Root>
+    {!embed && <AssessmentHeader assessment={assessment} tab="paper" />}
     {!assessment.paper ? (
       <Panel title="Upload question paper" className="max-w-3xl">
         {extracting ? <div className="space-y-4" aria-live="polite"><p className="text-sm font-medium text-ink">Extracting questions…</p><Skeleton className="h-8 w-2/3" /><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div> : <>
@@ -137,5 +141,5 @@ export default function QuestionPaper() {
     <Dialog open={replaceOpen} onClose={() => { setReplaceOpen(false); setReplaceConfirm(false); setReplaceFile(null); }} title="Replace question paper" size="md" footer={replaceConfirm ? <><Button variant="ghost" onClick={() => setReplaceConfirm(false)}>Back</Button><Button variant="primary" disabled={!replaceFile} onClick={uploadReplacement}>Record new version</Button></> : <Button variant="ghost" onClick={() => setReplaceOpen(false)}>Close</Button>}>
       {replaceConfirm ? <div className="space-y-3"><Banner tone="warning" title="A new paper version will be recorded">Replacing creates v{(assessment.paper?.version ?? 0) + 1}. The extracted questions must be confirmed again before setup can continue.</Banner><p className="text-[13px]">Selected file: <span className="font-medium text-ink">{replaceFile?.name}</span></p>{replaceError && <Banner tone="danger">{replaceError}</Banner>}</div> : <div className="space-y-3">{replaceError && <Banner tone="danger">{replaceError}</Banner>}<DropZone accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" title="Choose a new question paper" hint="PDF, JPG or PNG · multiple pages supported" sample={{ name: sampleName, sizeMb: 2.4 }} onFile={(name, size) => { setReplaceFile({ name, size }); setReplaceConfirm(true); }} /></div>}
     </Dialog>
-  </Page>;
+  </Root>;
 }

@@ -131,7 +131,6 @@ export interface Guardian {
 export interface Student {
   id: string;
   name: string;
-  admissionNo: string;
   grade: string;
   section: string;
   roll: number;

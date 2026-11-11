@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
+import type { ElementType } from "react";
+import type { Embed } from "../components/embed";
 import { useNavigate, useParams } from "react-router-dom";
 import { Check, Plus, Trash2, WandSparkles } from "lucide-react";
 import { useStore } from "../data/store";
@@ -12,8 +14,10 @@ function EditableList({ title, values, disabled, onChange }: { title: string; va
   return <div className="space-y-2"><div className="flex items-center justify-between"><p className="text-[13px] font-medium text-ink">{title}</p><Button size="sm" variant="ghost" disabled={disabled} icon={<Plus size={14} strokeWidth={ICON} />} onClick={() => onChange([...values, ""])}>Add</Button></div>{values.length === 0 && <p className="text-xs text-ink-4">No items added</p>}{values.map((value, index) => <div key={`${title}-${index}`} className="flex items-center gap-2"><Input aria-label={`${title} ${index + 1}`} value={value} disabled={disabled} onChange={(e) => setAt(index, e.target.value)} /><IconButton label={`Remove ${title.toLowerCase()} ${index + 1}`} disabled={disabled} onClick={() => onChange(values.filter((_, i) => i !== index))}><Trash2 size={15} strokeWidth={ICON} /></IconButton></div>)}</div>;
 }
 
-export default function AnswerKey() {
-  const { id } = useParams();
+export default function AnswerKey({ embed }: { embed?: Embed }) {
+  const params = useParams();
+  const id = embed?.id ?? params.id;
+  const Root: ElementType = embed ? Fragment : Page;
   const assessment = useAssessmentParam(id);
   const { state, actions } = useStore();
   const navigate = useNavigate();
@@ -31,7 +35,7 @@ export default function AnswerKey() {
     const result = actions.approveAnswerKey(assessment.id);
     if (!result.ok) { setError(result.error); return; }
     setError(""); actions.toast(`Answer key approved (v${assessment.answerKey.version + 1})`, { tone: "success" });
-    navigate(`/assessments/${assessment.id}/setup/rubric`);
+    if (embed) embed.onNext(); else navigate(`/assessments/${assessment.id}/setup/rubric`);
   };
   const startEdit = () => {
     actions.updateAssessment(assessment.id, { answerKey: { ...assessment.answerKey, status: "draft" } });
@@ -39,9 +43,9 @@ export default function AnswerKey() {
   };
   const patchQuestion = (q: Question, patch: Partial<Question>) => actions.updateQuestion(assessment.id, q.id, patch);
 
-  return <Page>
-    <AssessmentHeader assessment={assessment} tab="answer-key" />
-    {!assessment.questionsConfirmed ? <Panel className="max-w-3xl"><EmptyState title="Confirm the question paper first" body="The answer key is mapped to stable question IDs. Confirm the question structure before drafting or uploading answers." action={<Button variant="primary" onClick={() => navigate(`/assessments/${assessment.id}/setup/paper`)}>Go to question paper</Button>} /></Panel> : <>
+  return <Root>
+    {!embed && <AssessmentHeader assessment={assessment} tab="answer-key" />}
+    {!assessment.questionsConfirmed ? <Panel className="max-w-3xl"><EmptyState title="Confirm the question paper first" body="The answer key is mapped to stable question IDs. Confirm the question structure before drafting or uploading answers." action={<Button variant="primary" onClick={() => embed ? embed.goStep("paper") : navigate(`/assessments/${assessment.id}/setup/paper`)}>Go to question paper</Button>} /></Panel> : <>
       {error && <Banner tone="danger" className="mb-4">{error}</Banner>}
       {assessment.answerKey.status === "none" && <div className="max-w-4xl space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -72,6 +76,6 @@ export default function AnswerKey() {
     <Dialog open={editOpen} onClose={() => setEditOpen(false)} title="Edit answer key" size="sm" footer={<><Button variant="ghost" onClick={() => setEditOpen(false)}>Cancel</Button><Button variant="primary" disabled={evaluating} onClick={startEdit}>Create draft version</Button></>}>
       <p>Editing creates version {assessment.answerKey.version + 1}. Copies already evaluated keep v{assessment.answerKey.version}.</p>{evaluating && <Banner tone="warning" className="mt-3">Editing is unavailable while copies are queued or being evaluated.</Banner>}
     </Dialog>
-  </Page>;
+  </Root>;
 }
 

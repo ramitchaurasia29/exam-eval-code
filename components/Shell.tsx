@@ -13,7 +13,6 @@ import {
   ClipboardList,
   FileCheck2,
   FilePlus2,
-  FileUp,
   GraduationCap,
   KeyRound,
   LayoutDashboard,
@@ -27,7 +26,6 @@ import {
   Send,
   Settings as SettingsIcon,
   Users,
-  Workflow,
   Repeat,
   X,
   ChevronsUpDown,
@@ -80,8 +78,6 @@ interface NavGroup { title?: string; items: NavItem[] }
 function useNav(): NavGroup[] {
   const { state, me, role } = useStore();
   return useMemo(() => {
-    const openUnmatched = state.unmatched.filter((u) => u.status === "open").length;
-    const failed = state.sheets.filter((s) => s.evaluation === "failed" || s.evaluation === "needs_review").length;
     const unread = state.notifications.filter((n) => n.userId === me.id && !n.read).length;
     if (role === "admin") {
       return [
@@ -90,8 +86,6 @@ function useNav(): NavGroup[] {
           title: "Examinations",
           items: [
             { to: "/assessments", label: "Assessments", icon: ClipboardList, match: ["/assessments"] },
-            { to: "/uploads", label: "Answer sheet uploads", icon: FileUp, badge: openUnmatched, match: ["/uploads", "/unmatched"] },
-            { to: "/queue", label: "Processing queue", icon: Workflow, badge: failed },
           ],
         },
         {
@@ -312,11 +306,11 @@ function GlobalSearch({ onNavigate }: { onNavigate: (to: string) => void }) {
     const sids = new Set(visibleSheets.map((s) => s.studentId));
     state.students
       .filter((s) => role === "admin" || sids.has(s.id))
-      .filter((s) => s.name.toLowerCase().includes(term) || s.barcode.toLowerCase().includes(term.replace(/ /g, "")) || s.admissionNo.toLowerCase().includes(term))
+      .filter((s) => s.name.toLowerCase().includes(term) || s.barcode.toLowerCase().includes(term.replace(/ /g, "")))
       .slice(0, 6)
       .forEach((s) => {
         const sh = visibleSheets.find((x) => x.studentId === s.id && x.evaluation === "evaluated");
-        out.push({ label: s.name, sub: `${classLabel(s.grade, s.section)} · Roll ${s.roll} · ${s.barcode}`, to: sh ? `/review/${sh.id}` : role === "admin" ? `/students?q=${encodeURIComponent(s.name)}` : "/teacher/pending", kind: "Student" });
+        out.push({ label: s.name, sub: `${classLabel(s.grade, s.section)} · Roll no ${s.roll} · ${s.barcode}`, to: sh ? `/review/${sh.id}` : role === "admin" ? `/students?q=${encodeURIComponent(s.name)}` : "/teacher/pending", kind: "Student" });
       });
     return out;
   }, [q, state.assessments, state.students, state.sheets, role, me.id]);
@@ -340,8 +334,8 @@ function GlobalSearch({ onNavigate }: { onNavigate: (to: string) => void }) {
           }
           if (e.key === "Escape") setOpen(false);
         }}
-        aria-label="Search students, barcodes and assessments"
-        placeholder="Search students, barcodes, assessments"
+        aria-label="Search students, QR IDs and assessments"
+        placeholder="Search students, QR IDs, assessments"
         className="h-8 w-full rounded-md border border-border bg-subtle pl-8 pr-3 text-[13px] text-ink placeholder:text-ink-4 focus:border-primary focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-ring/60"
       />
       {open && q.trim().length >= 2 && (

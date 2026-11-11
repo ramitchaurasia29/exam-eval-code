@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../data/store";
 import type { NewAssessmentInput } from "../data/store";
-import { Avatar, Button, Checkbox, Field, Input, Page, PageHeader, Panel, Select, Stepper, Textarea } from "../components/ui";
+import { Avatar, Button, Checkbox, Field, Input, Panel, Select, Textarea } from "../components/ui";
 import { useScreenInit } from "../useScreenInit";
 
 const subjects = ["Science", "Mathematics", "English", "Social Science", "Hindi", "Computer Science"];
@@ -11,7 +11,7 @@ const sections = ["A", "B", "C", "D"];
 type FormValues = { name: string; academicYear: string; grade: string; sections: string[]; subject: string; type: string; examDate: string; totalMarks: string; durationMin: string; instructions: string; teacherIds: string[] };
 type Errors = Partial<Record<keyof FormValues, string>>;
 
-export default function AssessmentCreate() {
+export default function AssessmentCreate({ onCreated }: { onCreated: (id: string) => void }) {
   const { state, actions, me, role } = useStore();
   const init = useScreenInit();
   const navigate = useNavigate();
@@ -43,7 +43,7 @@ export default function AssessmentCreate() {
     };
     const id = actions.createAssessment(input);
     actions.toast("Assessment created", { tone: "success" });
-    navigate(`/assessments/${id}/setup/paper`);
+    onCreated(id);
   };
   const toggle = (key: keyof FormValues, val: string) => {
     const current = values[key] as string[];
@@ -51,10 +51,7 @@ export default function AssessmentCreate() {
   };
   const assignRef = (key: string) => (el: HTMLElement | null) => { refs.current[key] = el; };
 
-  return <Page>
-    <PageHeader title="Create assessment" crumbs={[{ label: role === "admin" ? "Assessments" : "My assessments", to: role === "admin" ? "/assessments" : "/teacher/assessments" }, { label: "Create assessment" }]} />
-    <div className="mx-auto max-w-[640px]">
-      <div className="mb-4 overflow-x-auto"><Stepper current={0} steps={[{ label: "Details", done: false }, { label: "Question paper", done: false }, { label: "Answer key", done: false }, { label: "Rubric", done: false }]} /></div>
+  return <>
       <Panel title="Assessment details">
         <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="space-y-4">
           <Field label="Assessment name" htmlFor="assessment-name" error={errors.name}><Input id="assessment-name" ref={assignRef("name")} value={values.name} invalid={!!errors.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Science Midterm" /></Field>
@@ -74,10 +71,9 @@ export default function AssessmentCreate() {
           </Field>
           <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
             <Button variant="ghost" onClick={() => navigate(role === "admin" ? "/assessments" : "/teacher/assessments")}>Cancel</Button>
-            <Button variant="primary" type="submit">Create assessment</Button>
+            <Button variant="primary" type="submit">Save and continue</Button>
           </div>
         </form>
       </Panel>
-    </div>
-  </Page>;
+  </>;
 }

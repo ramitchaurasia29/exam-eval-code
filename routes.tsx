@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useParams, useSearchParams } from "react-router-dom";
 import Shell from "./components/Shell";
 import { useStore } from "./data/store";
 import { ButtonLink, EmptyState } from "./components/ui";
@@ -11,18 +11,14 @@ import ParentResult from "./screens/ParentResult";
 import AdminOverview from "./screens/AdminOverview";
 import TeacherDashboard from "./screens/TeacherDashboard";
 import AssessmentsList from "./screens/AssessmentsList";
-import AssessmentCreate from "./screens/AssessmentCreate";
 import AssessmentDetail from "./screens/AssessmentDetail";
-import AnswerSheetList from "./screens/AnswerSheetList";
+import AssessmentStudents from "./screens/AssessmentStudents";
+import AssessmentWizard from "./screens/AssessmentWizard";
 import QuestionPaper from "./screens/QuestionPaper";
 import AnswerKey from "./screens/AnswerKey";
 import Rubric from "./screens/Rubric";
 import SetupList from "./screens/SetupList";
-import UploadsList from "./screens/UploadsList";
-import BulkUpload from "./screens/BulkUpload";
-import BatchProgress from "./screens/BatchProgress";
 import UnmatchedQueue from "./screens/UnmatchedQueue";
-import ProcessingQueue from "./screens/ProcessingQueue";
 import Students from "./screens/Students";
 import TeacherAssignment from "./screens/TeacherAssignment";
 import Verification from "./screens/Verification";
@@ -37,6 +33,17 @@ import Settings from "./screens/Settings";
 function Home() {
   const { role } = useStore();
   return <Navigate to={role === "admin" ? "/admin" : "/teacher"} replace />;
+}
+
+/** Old upload / processing URLs now live inside each assessment. */
+function UploadsRedirect() {
+  const [params] = useSearchParams();
+  const asm = params.get("assessment");
+  return <Navigate to={asm ? `/assessments/${asm}/students` : "/assessments"} replace />;
+}
+function SheetsRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/assessments/${id}/students`} replace />;
 }
 
 function NotFound() {
@@ -63,17 +70,19 @@ export default function AppRoutes() {
         {/* Exam Cell */}
         <Route path="/admin" element={<AdminOverview />} />
         <Route path="/assessments" element={<AssessmentsList />} />
-        <Route path="/assessments/new" element={<AssessmentCreate />} />
+        <Route path="/assessments/new" element={<AssessmentWizard />} />
+        <Route path="/assessments/:id/create/:step" element={<AssessmentWizard />} />
         <Route path="/assessments/:id" element={<AssessmentDetail />} />
-        <Route path="/assessments/:id/sheets" element={<AnswerSheetList />} />
+        <Route path="/assessments/:id/students" element={<AssessmentStudents />} />
+        <Route path="/assessments/:id/sheets" element={<SheetsRedirect />} />
         <Route path="/assessments/:id/setup/paper" element={<QuestionPaper />} />
         <Route path="/assessments/:id/setup/answer-key" element={<AnswerKey />} />
         <Route path="/assessments/:id/setup/rubric" element={<Rubric />} />
-        <Route path="/uploads" element={<UploadsList />} />
-        <Route path="/uploads/new" element={<BulkUpload />} />
-        <Route path="/uploads/:batchId" element={<BatchProgress />} />
+        <Route path="/uploads" element={<UploadsRedirect />} />
+        <Route path="/uploads/new" element={<UploadsRedirect />} />
+        <Route path="/uploads/:batchId" element={<UploadsRedirect />} />
         <Route path="/unmatched" element={<UnmatchedQueue />} />
-        <Route path="/queue" element={<ProcessingQueue />} />
+        <Route path="/queue" element={<UploadsRedirect />} />
         <Route path="/students" element={<Students />} />
         <Route path="/teachers" element={<TeacherAssignment />} />
         <Route path="/verification" element={<Verification />} />

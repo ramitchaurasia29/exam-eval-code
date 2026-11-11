@@ -110,11 +110,11 @@ export const DIST_STATUS: Record<"not_sent" | "sending" | "delivered" | "failed"
 };
 
 export const UNMATCHED_REASON: Record<UnmatchedReason, { label: string; help: string }> = {
-  missing_barcode: { label: "Missing barcode", help: "No barcode found on the cover page. Identify the student from the cover details." },
-  unreadable_barcode: { label: "Unreadable barcode", help: "A barcode was found but couldn't be decoded. Enter it manually or map the student." },
-  unknown_barcode: { label: "Unknown barcode", help: "The barcode decoded but isn't in the school registry. Correct it or map the student." },
-  duplicate_barcode: { label: "Duplicate barcode", help: "Another booklet with this barcode is already mapped. Keep one and discard the other." },
-  not_in_cohort: { label: "Student not in this assessment", help: "The barcode belongs to a student outside this class and section. Check the booklet was filed correctly." },
+  missing_barcode: { label: "Missing QR code", help: "No QR code found on the cover page. Identify the student from the cover details." },
+  unreadable_barcode: { label: "Unreadable QR code", help: "A QR code was found but couldn't be decoded. Enter it manually or map the student." },
+  unknown_barcode: { label: "Unknown QR code", help: "The QR code decoded but isn't in the school registry. Correct it or map the student." },
+  duplicate_barcode: { label: "Duplicate QR code", help: "Another booklet with this QR code is already mapped. Keep one and discard the other." },
+  not_in_cohort: { label: "Student not in this assessment", help: "The QR code belongs to a student outside this class and section. Check the booklet was filed correctly." },
 };
 
 export const REVIEW_REASON: Record<ReviewReason, string> = {

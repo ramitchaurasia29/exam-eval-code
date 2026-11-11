@@ -41,7 +41,7 @@ export default function TeacherDashboard() {
                   const student = state.students.find((s) => s.id === sheet.studentId)!;
                   const assessment = state.assessments.find((a) => a.id === sheet.assessmentId)!;
                   return <Tr key={sheet.id} onClick={() => navigate(`/review/${sheet.id}`)}>
-                    <Td sticky><span className="block font-medium text-ink">{student.name}</span><span className="text-xs text-ink-3">Class {student.grade}{student.section} · Roll {student.roll}</span></Td>
+                    <Td sticky><span className="block font-medium text-ink">{student.name}</span><span className="text-xs text-ink-3">Class {student.grade}{student.section} · Roll no {student.roll}</span></Td>
                     <Td>{assessment.name}</Td><Td>{sheetAiTotal(sheet)}/{assessment.totalMarks}</Td>
                     <Td>{flaggedCount(sheet) ? <span className="inline-flex items-center gap-1 text-warning"><Flag size={13} strokeWidth={ICON} />{flaggedCount(sheet)}</span> : <span className="text-ink-4">–</span>}</Td>
                     <Td><StatusText {...(sheet.verification === "reopened" ? { label: "Reopened", tone: "warning" as const } : sheet.verification === "in_progress" ? { label: "In progress", tone: "info" as const } : flaggedCount(sheet) ? { label: "Flagged", tone: "warning" as const } : { label: "Not started", tone: "muted" as const })} /></Td>

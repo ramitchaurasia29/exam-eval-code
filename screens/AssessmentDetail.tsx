@@ -52,7 +52,7 @@ export default function AssessmentDetail() {
     processing: { label: "Processing", tone: "info" }, completed: { label: "Completed", tone: "success" }, partial: { label: "Partial", tone: "warning" }, failed: { label: "Failed", tone: "danger" }, paused: { label: "Paused", tone: "muted" },
   };
   const uploadReady = assessment.answerKey.status === "approved" && assessment.rubric.status === "approved";
-  const headActions = role === "admin" ? <><ButtonLink to={`/distribution?assessment=${assessment.id}`} icon={<Send size={15} />}>Send results</ButtonLink>{uploadReady && <ButtonLink to={`/uploads/new?assessment=${assessment.id}`} variant="primary" icon={<FileUp size={15} />}>Upload answer sheets</ButtonLink>}</> : <ButtonLink to="/teacher/pending" variant="primary" icon={<ClipboardCheck size={15} />}>Review copies</ButtonLink>;
+  const headActions = role === "admin" ? <><ButtonLink to={`/distribution?assessment=${assessment.id}`} icon={<Send size={15} />}>Send results</ButtonLink>{uploadReady && <ButtonLink to={`/assessments/${assessment.id}/students`} variant="primary" icon={<FileUp size={15} />}>Upload answer sheets</ButtonLink>}</> : <ButtonLink to="/teacher/pending" variant="primary" icon={<ClipboardCheck size={15} />}>Review copies</ButtonLink>;
 
   return <Page wide>
     <AssessmentHeader assessment={assessment} tab="overview" actions={headActions} />
@@ -61,9 +61,9 @@ export default function AssessmentDetail() {
         <ol className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
           {[
             { label: "Expected", value: cohort.length, note: `${assessment.sections.length ? `Class ${assessment.grade} ${assessment.sections.join(", ")}` : "No sections"}`, to: `/assessments/${assessment.id}/sheets` },
-            { label: "Uploaded", value: ownSheets.length + unmatched.length, note: `${uploadBatches.length} ${uploadBatches.length === 1 ? "upload" : "uploads"}`, to: "/uploads" },
+            { label: "Uploaded", value: ownSheets.length + unmatched.length, note: `${uploadBatches.length} ${uploadBatches.length === 1 ? "upload" : "uploads"}`, to: `/assessments/${assessment.id}/students` },
             { label: "Identified", value: ownSheets.length, note: unmatched.length ? `${num(unmatched.length)} need mapping` : "All identified", to: unmatched.length ? "/unmatched" : `/assessments/${assessment.id}/sheets`, warning: unmatched.length > 0 },
-            { label: "AI evaluated", value: evaluated.length, note: `${num(ownSheets.filter((s) => s.evaluation === "queued" || s.evaluation === "processing").length)} in queue`, to: "/queue" },
+            { label: "AI evaluated", value: evaluated.length, note: `${num(ownSheets.filter((s) => s.evaluation === "queued" || s.evaluation === "processing").length)} in queue`, to: `/assessments/${assessment.id}/students` },
             { label: "Verified", value: verified.length, note: `${num(evaluated.length - verified.length)} not verified`, to: "/verification" },
             { label: "Distributed", value: released.length, note: "Latest SMS delivered", to: `/distribution?assessment=${assessment.id}` },
           ].map((f, i) => <li key={f.label} className={`relative border-border ${i > 0 ? "xl:border-l" : ""} ${i % 2 === 1 ? "border-l sm:border-l-0" : ""} ${i >= 2 ? "border-t sm:border-t-0" : ""} ${i >= 3 ? "sm:border-t xl:border-t-0" : ""} ${i % 3 !== 0 ? "sm:border-l" : ""}`}>
@@ -106,7 +106,7 @@ export default function AssessmentDetail() {
             })}</ul>}
           </Panel>
           <Panel title="Uploads" flush>
-            {uploadBatches.length === 0 ? <p className="px-4 py-5 text-[13px] text-ink-3">No answer sheets uploaded.</p> : <ul className="divide-y divide-border">{uploadBatches.map((b) => <li key={b.id}><Link to={`/uploads/${b.id}`} className="block px-4 py-3 hover:bg-subtle"><span className="block truncate text-[13px] font-medium text-ink">{b.fileName}</span><span className="mt-1 flex items-center justify-between gap-2"><span className="text-xs text-ink-3">{num(b.booklets)} booklets · {fmtDateTime(b.uploadedAt)}</span><StatusText {...statusLabel[b.status]} /></span></Link></li>)}</ul>}
+            {uploadBatches.length === 0 ? <p className="px-4 py-5 text-[13px] text-ink-3">No answer sheets uploaded.</p> : <ul className="divide-y divide-border">{uploadBatches.map((b) => <li key={b.id}><Link to={`/assessments/${assessment.id}/students`} className="block px-4 py-3 hover:bg-subtle"><span className="block truncate text-[13px] font-medium text-ink">{b.fileName}</span><span className="mt-1 flex items-center justify-between gap-2"><span className="text-xs text-ink-3">{num(b.booklets)} booklets · {fmtDateTime(b.uploadedAt)}</span><StatusText {...statusLabel[b.status]} /></span></Link></li>)}</ul>}
           </Panel>
           <Panel title="Versions">
             <dl className="divide-y divide-border">

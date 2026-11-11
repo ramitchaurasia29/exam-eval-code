@@ -23,6 +23,7 @@ import type {
   Role,
   Settings,
   Student,
+  Guardian,
   Suggestion,
   Toast,
   UnmatchedItem,
@@ -265,7 +266,7 @@ function useStoreImpl() {
               userId: "u-admin",
               title: `${b.fileName} processed`,
               body: `${created.length} booklets mapped${newUnmatched.length ? `, ${newUnmatched.length} need mapping` : ""}`,
-              href: `/uploads/${b.id}`,
+              href: `/assessments/${b.assessmentId}/students`,
               kind: "system",
             });
             next.audit = audit(next, {
@@ -274,7 +275,7 @@ function useStoreImpl() {
               action: "Processed upload",
               target: b.fileName,
               detail: `${created.length} mapped · ${newUnmatched.length} unmatched`,
-              href: `/uploads/${b.id}`,
+              href: `/assessments/${b.assessmentId}/students`,
             });
             return {
               ...b,
@@ -635,7 +636,7 @@ function useStoreImpl() {
           } as UploadBatch,
           ...s.batches,
         ],
-        audit: audit(s, { category: "upload", action: input.kind === "bulk" ? "Uploaded bulk PDF" : "Uploaded individual copy", target: input.fileName, detail: `${a.name} · Class ${a.grade}`, href: `/uploads/${id}` }),
+        audit: audit(s, { category: "upload", action: input.kind === "bulk" ? "Uploaded bulk PDF" : "Uploaded individual copy", target: input.fileName, detail: `${a.name} · Class ${a.grade}`, href: `/assessments/${input.assessmentId}/students` }),
       }));
       return { ok: true, id };
     };
@@ -678,9 +679,17 @@ function useStoreImpl() {
             model: MODEL_VERSION,
           },
         ],
-        audit: audit(s, { category: "mapping", action: "Mapped booklet to student", target: `${st.name} · Class ${st.grade}${st.section} roll ${st.roll}`, detail: `Pages ${item.pagesFrom}–${item.pagesTo} · ${item.decoded ?? "no barcode"}`, href: "/unmatched" }),
+        audit: audit(s, { category: "mapping", action: "Mapped booklet to student", target: `${st.name} · Class ${st.grade}${st.section} roll no ${st.roll}`, detail: `Pages ${item.pagesFrom}–${item.pagesTo} · ${item.decoded ?? "no barcode"}`, href: "/unmatched" }),
       }));
       return { ok: true };
+    };
+    const addStudent = (input: { name: string; grade: string; section: string; roll: number; guardianName: string; relation: Guardian["relation"]; phone: string | null }): Result & { student?: Student } => {
+      const cur = ref.current.students;
+      if (cur.some((x) => x.grade === input.grade && x.section === input.section && x.roll === input.roll)) return { ok: false, error: `Roll no ${input.roll} is already used in Class ${input.grade}${input.section}` };
+      const seq = cur.reduce((m, x) => Math.max(m, Number(x.barcode.slice(-5)) || 0), 0) + 1;
+      const student: Student = { id: uid("st"), name: input.name, grade: input.grade, section: input.section, roll: input.roll, barcode: `GPS${input.grade.padStart(2, "0")}${input.section}${String(seq).padStart(5, "0")}`, guardian: { name: input.guardianName, relation: input.relation, phone: input.phone } };
+      set((s) => ({ ...s, students: [...s.students, student], audit: audit(s, { category: "access", action: "Added student", target: `${student.name} · Class ${student.grade}${student.section} roll no ${student.roll}`, detail: `QR ${student.barcode}` }) }));
+      return { ok: true, student };
     };
     const lookupBarcode = (barcode: string): Student | undefined => {
       const norm = barcode.replace(/\s+/g, "").toUpperCase();
@@ -951,7 +960,7 @@ function useStoreImpl() {
       generateAnswerKey, uploadManualKey, approveAnswerKey,
       generateRubric, regenerateRubricFor, setCriteria, approveRubric,
       startUpload, pauseBatch,
-      resolveUnmatched, lookupBarcode, discardUnmatched, reopenUnmatched,
+      resolveUnmatched, addStudent, lookupBarcode, discardUnmatched, reopenUnmatched,
       setQueuePaused, retryJobs,
       assign, setDeadline, remind,
       updateEval, acceptQuestion, acceptAllConfident, setGeneralFeedback, saveDraft, restoreSheet, verify, reopen,

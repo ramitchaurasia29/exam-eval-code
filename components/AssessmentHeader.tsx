@@ -1,6 +1,6 @@
 /*
  * Shared header for every assessment page: breadcrumb, title, meta, status and the
- * assessment's section tabs (Overview, Answer sheets, Question paper, Answer key, Rubric).
+ * assessment's section tabs (Overview, Students, Question paper, Answer key, Rubric).
  * Setup tabs show a check when that step is approved, so progress reads from the tabs.
  */
 import type { ReactNode } from "react";
@@ -11,7 +11,7 @@ import { useStore } from "../data/store";
 import { ASSESSMENT_STATUS, assessmentStatus, fmtDate } from "../data/selectors";
 import { PageHeader, StatusText, cx } from "./ui";
 
-export type AssessmentTab = "overview" | "sheets" | "paper" | "answer-key" | "rubric";
+export type AssessmentTab = "overview" | "students" | "paper" | "answer-key" | "rubric";
 
 export function setupSteps(a: Assessment) {
   return [
@@ -29,7 +29,7 @@ export default function AssessmentHeader({ assessment: a, tab, actions, children
   const steps = setupSteps(a);
   const tabs: { id: AssessmentTab; label: string; to: string; done?: boolean; count?: number }[] = [
     { id: "overview", label: "Overview", to: `/assessments/${a.id}` },
-    { id: "sheets", label: "Answer sheets", to: `/assessments/${a.id}/sheets`, count: sheetCount },
+    { id: "students", label: "Students", to: `/assessments/${a.id}/students`, count: sheetCount },
     { id: "paper", label: "Question paper", to: `/assessments/${a.id}/setup/paper`, done: steps[0].done },
     { id: "answer-key", label: "Answer key", to: `/assessments/${a.id}/setup/answer-key`, done: steps[1].done },
     { id: "rubric", label: "Rubric", to: `/assessments/${a.id}/setup/rubric`, done: steps[2].done },

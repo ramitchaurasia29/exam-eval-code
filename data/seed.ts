@@ -84,7 +84,6 @@ function makeStudents(): Student[] {
       out.push({
         id,
         name: `${first} ${last}`,
-        admissionNo: `GPS/${2026 - Number(grade) + 5 - 1}/${String(adm).padStart(4, "0")}`,
         grade,
         section,
         roll,
@@ -381,7 +380,7 @@ export function seedSheets(assessments: Assessment[]): SeedResult {
     });
   });
 
-  /* Science 10A: Meera. Roll 7 missing barcode (unmatched). Roll 22 individual upload. */
+  /* Science 10A: Meera. Roll no 7 missing barcode (unmatched). Roll no 22 individual upload. */
   tenA.forEach((st, i) => {
     if (st.roll === 7) return;
     const batch = st.roll === 22 ? "bt-sci-ind" : "bt-sci-a";
@@ -414,7 +413,7 @@ export function seedSheets(assessments: Assessment[]): SeedResult {
     sheets.push(sh);
   });
 
-  /* Science 10B: Rahul. Roll 15 unknown barcode (unmatched). Rolls 28–32 unassigned. */
+  /* Science 10B: Rahul. Roll no 15 unknown barcode (unmatched). Rolls 28–32 unassigned. */
   let processing = 0;
   tenB.forEach((st, i) => {
     if (st.roll === 15) return;
@@ -453,7 +452,7 @@ export function seedSheets(assessments: Assessment[]): SeedResult {
     sheets.push(sh);
   });
 
-  /* Science releases: 10A verified rolls 1–10, 10B rolls 1–6, and one provisional (10B roll 13) */
+  /* Science releases: 10A verified rolls 1–10, 10B rolls 1–6, and one provisional (10B roll no 13) */
   const releaseSci = sheets.filter((s) => {
     if (s.assessmentId !== sci.id) return false;
     const st = STUDENTS.find((x) => x.id === s.studentId)!;
@@ -517,16 +516,16 @@ export function seedAudit(): AuditEvent[] {
     href,
   });
   return [
-    e(20 * HOUR, "u-admin", "distribution", "Released provisional copy", "Science Midterm · 10B roll 13", "Sent without teacher verification. Labelled Not verified.", "/distribution"),
+    e(20 * HOUR, "u-admin", "distribution", "Released provisional copy", "Science Midterm · 10B roll no 13", "Sent without teacher verification. Labelled Not verified.", "/distribution"),
     e(26 * HOUR, "u-admin", "distribution", "Sent results by SMS", "Science Midterm · 16 copies", "15 delivered, 1 failed", "/distribution"),
-    e(2 * DAY, "u-meera", "verification", "Reopened copy", "Science Midterm · 10A roll 19", "Question 7 working was on page 5; marks recalculated", "/review/as-sci10-mid-10a-19"),
+    e(2 * DAY, "u-meera", "verification", "Reopened copy", "Science Midterm · 10A roll no 19", "Question 7 working was on page 5; marks recalculated", "/review/as-sci10-mid-10a-19"),
     e(2 * DAY + 3 * HOUR, "u-rahul", "verification", "Verified 10 copies", "Science Midterm · Class 10B"),
     e(3 * DAY, "u-meera", "verification", "Verified 15 copies", "Science Midterm · Class 10A"),
-    e(4 * DAY, "u-admin", "upload", "Uploaded individual copy", "Science Midterm · 10A roll 22", "Science_Midterm_10A_Roll22.pdf", "/uploads/bt-sci-ind"),
+    e(4 * DAY, "u-admin", "upload", "Uploaded individual copy", "Science Midterm · 10A roll no 22", "Science_Midterm_10A_Roll22.pdf", "/assessments/asm-sci10-mid/students"),
     e(4 * DAY + 2 * HOUR, "u-admin", "review", "Assigned copies", "Science Midterm · 26 copies to Rahul Deshmukh", undefined, "/teachers"),
     e(4 * DAY + 2 * HOUR + 5 * MIN, "u-admin", "review", "Assigned copies", "Science Midterm · 31 copies to Meera Iyer", undefined, "/teachers"),
-    e(5 * DAY, "u-admin", "upload", "Uploaded bulk PDF", "Class10_Science_Midterm_SecB.pdf", "270 pages · 34 booklets", "/uploads/bt-sci-b"),
-    e(6 * DAY, "u-admin", "upload", "Uploaded bulk PDF", "Class10_Science_Midterm_SecA.pdf", "248 pages · 31 booklets", "/uploads/bt-sci-a"),
+    e(5 * DAY, "u-admin", "upload", "Uploaded bulk PDF", "Class10_Science_Midterm_SecB.pdf", "270 pages · 34 booklets", "/assessments/asm-sci10-mid/students"),
+    e(6 * DAY, "u-admin", "upload", "Uploaded bulk PDF", "Class10_Science_Midterm_SecA.pdf", "248 pages · 31 booklets", "/assessments/asm-sci10-mid/students"),
     e(12 * DAY, "u-meera", "assessment", "Approved rubric v2", "Science Midterm", "Q6 criteria changed. No copies evaluated yet.", "/assessments/asm-sci10-mid/setup/rubric"),
     e(13 * DAY, "u-meera", "assessment", "Approved answer key v1", "Science Midterm", "AI-generated, 2 answers edited", "/assessments/asm-sci10-mid/setup/answer-key"),
     e(14 * DAY, "u-meera", "assessment", "Replaced question paper", "Science Midterm", "v1 → v2 (Q11 marks corrected)", "/assessments/asm-sci10-mid/setup/paper"),
@@ -539,12 +538,12 @@ export function seedAudit(): AuditEvent[] {
 export function seedNotifications(): Notification[] {
   return [
     { id: "nt-1", userId: "u-meera", at: iso(40 * MIN), title: "Verification deadline in 3 days", body: "Science Midterm · 17 copies left to verify by 21 Mar", href: "/teacher/pending", read: false, kind: "deadline" },
-    { id: "nt-2", userId: "u-meera", at: iso(2 * DAY), title: "Re-verification required", body: "Science Midterm · 10A roll 19 was reopened", href: "/review/as-sci10-mid-10a-19", read: false, kind: "reverify" },
+    { id: "nt-2", userId: "u-meera", at: iso(2 * DAY), title: "Re-verification required", body: "Science Midterm · 10A roll no 19 was reopened", href: "/review/as-sci10-mid-10a-19", read: false, kind: "reverify" },
     { id: "nt-3", userId: "u-meera", at: iso(4 * DAY), title: "31 copies assigned to you", body: "Science Midterm · Class 10A", href: "/teacher/pending", read: true, kind: "assigned" },
     { id: "nt-4", userId: "u-meera", at: iso(4 * DAY + HOUR), title: "AI evaluation completed", body: "Science Midterm · Class 10A, 31 copies", href: "/assessments/asm-sci10-mid", read: true, kind: "evaluated" },
-    { id: "nt-5", userId: "u-admin", at: iso(1 * HOUR), title: "1 evaluation job failed", body: "Science Midterm · 10B roll 27: handwriting extraction timed out", href: "/queue", read: false, kind: "system" },
+    { id: "nt-5", userId: "u-admin", at: iso(1 * HOUR), title: "1 evaluation job failed", body: "Science Midterm · 10B roll no 27: handwriting extraction timed out", href: "/assessments/asm-sci10-mid/students", read: false, kind: "system" },
     { id: "nt-6", userId: "u-admin", at: iso(5 * DAY), title: "4 booklets need mapping", body: "Science Midterm uploads have unmatched barcodes", href: "/unmatched", read: false, kind: "system" },
-    { id: "nt-7", userId: "u-admin", at: iso(26 * HOUR), title: "1 SMS failed", body: "Science Midterm · 10A roll 4: number unreachable", href: "/distribution", read: true, kind: "system" },
+    { id: "nt-7", userId: "u-admin", at: iso(26 * HOUR), title: "1 SMS failed", body: "Science Midterm · 10A roll no 4: number unreachable", href: "/distribution", read: true, kind: "system" },
   ];
 }
 

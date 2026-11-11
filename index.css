@@ -127,3 +127,13 @@ body {
     transition-duration: 1ms !important;
   }
 }
+
+/* QR code print sheets */
+.qr-print-root { display: none; }
+@media print {
+  @page { size: A4; margin: 0; }
+  body > #root { display: none !important; }
+  .qr-print-root { display: block; }
+  .qr-print-root > div { break-after: page; }
+  .qr-print-root > div:last-child { break-after: auto; }
+}

@@ -30,8 +30,8 @@ export default function AdminOverview() {
 
   const funnel = [
     { label: "Expected students", value: c.expected, note: `${scoped.filter((a) => a.paper && a.questionsConfirmed).length} assessments`, to: "/assessments" },
-    { label: "Uploaded copies", value: c.uploaded, note: c.unmatched ? `${c.unmatched} need mapping` : "All mapped", warn: c.unmatched > 0, to: c.unmatched ? "/unmatched" : "/uploads" },
-    { label: "Identified", value: c.identified, note: `${pct(c.identified, c.uploaded)}% of uploaded`, to: "/uploads" },
+    { label: "Uploaded copies", value: c.uploaded, note: c.unmatched ? `${c.unmatched} need mapping` : "All mapped", warn: c.unmatched > 0, to: c.unmatched ? "/unmatched" : "/assessments" },
+    { label: "Identified", value: c.identified, note: `${pct(c.identified, c.uploaded)}% of uploaded`, to: "/assessments" },
     { label: "AI evaluated", value: c.aiEvaluated, note: c.failed + c.needsReview ? `${c.pendingEvaluation} in queue · ${c.failed + c.needsReview} exceptions` : `${c.pendingEvaluation} in queue`, warn: c.failed + c.needsReview > 0, to: "/queue" },
     { label: "Verified", value: c.verified, note: `${c.pendingVerification} pending verification`, to: "/verification" },
     { label: "Distributed", value: c.distributed, note: c.smsFailed ? `${c.smsFailed} SMS failed` : c.provisional ? `${c.provisional} not verified` : "No failures", warn: c.smsFailed > 0, to: "/distribution" },
@@ -45,7 +45,7 @@ export default function AdminOverview() {
     const failed = sheets.filter((s) => s.evaluation === "failed");
     const nr = sheets.filter((s) => s.evaluation === "needs_review");
     if (failed.length || nr.length)
-      items.push({ icon: Workflow, tone: "danger", title: `${failed.length + nr.length} evaluation ${failed.length + nr.length === 1 ? "job needs" : "jobs need"} action`, body: [failed.length && `${failed.length} failed`, nr.length && `${nr.length} with missing pages`].filter(Boolean).join(" · "), to: "/queue", action: "Open queue" });
+      items.push({ icon: Workflow, tone: "danger", title: `${failed.length + nr.length} evaluation ${failed.length + nr.length === 1 ? "job needs" : "jobs need"} action`, body: [failed.length && `${failed.length} failed`, nr.length && `${nr.length} with missing pages`].filter(Boolean).join(" · "), to: "/assessments", action: "Open assessments" });
     const smsFailed = state.distributions.filter((d) => ids.has(d.assessmentId) && d.status === "failed" && latestDistribution(d.sheetId, state.distributions)?.id === d.id);
     if (smsFailed.length) items.push({ icon: MessageSquareWarning, tone: "danger", title: `${smsFailed.length} SMS not delivered`, body: "Guardians haven't received these results", to: "/distribution", action: "Retry" });
     const unassigned = sheets.filter((s) => !s.teacherId && s.evaluation === "evaluated");
@@ -86,7 +86,7 @@ export default function AdminOverview() {
                 <option key={a.id} value={a.id}>{a.name} · Class {a.grade}</option>
               ))}
             </Select>
-            <ButtonLink to="/uploads/new" variant="primary" icon={<FileUp size={16} strokeWidth={ICON} />}>Upload answer sheets</ButtonLink>
+            <ButtonLink to={scope !== "all" ? `/assessments/${scope}/students` : "/assessments"} variant="primary" icon={<FileUp size={16} strokeWidth={ICON} />}>Upload answer sheets</ButtonLink>
           </>
         }
       />
