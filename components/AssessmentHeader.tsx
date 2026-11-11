@@ -37,7 +37,7 @@ export default function AssessmentHeader({ assessment: a, tab, actions, children
   return (
     <>
       <PageHeader
-        crumbs={[{ label: role === "admin" ? "Assessments" : "My assessments", to: role === "admin" ? "/assessments" : "/teacher/assessments" }, { label: `${a.name} · Class ${a.grade}` }]}
+        crumbs={[{ label: role === "admin" ? "Exam Evaluator" : "My exams", to: role === "admin" ? "/assessments" : "/teacher/assessments" }, { label: `${a.name} · Class ${a.grade}` }]}
         title={`${a.name} · Class ${a.grade}`}
         meta={
           <>
@@ -51,7 +51,7 @@ export default function AssessmentHeader({ assessment: a, tab, actions, children
         }
         actions={actions}
       />
-      <nav className="-mt-1 mb-5 flex gap-1 overflow-x-auto border-b border-border" aria-label="Assessment sections">
+      <nav className="-mt-1 mb-5 flex gap-1 overflow-x-auto border-b border-border" aria-label="Exam sections">
         {tabs.map((t) => {
           const active = t.id === tab;
           const isSetup = t.done !== undefined;

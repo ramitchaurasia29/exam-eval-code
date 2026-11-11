@@ -114,7 +114,7 @@ export const UNMATCHED_REASON: Record<UnmatchedReason, { label: string; help: st
   unreadable_barcode: { label: "Unreadable QR code", help: "A QR code was found but couldn't be decoded. Enter it manually or map the student." },
   unknown_barcode: { label: "Unknown QR code", help: "The QR code decoded but isn't in the school registry. Correct it or map the student." },
   duplicate_barcode: { label: "Duplicate QR code", help: "Another booklet with this QR code is already mapped. Keep one and discard the other." },
-  not_in_cohort: { label: "Student not in this assessment", help: "The QR code belongs to a student outside this class and section. Check the booklet was filed correctly." },
+  not_in_cohort: { label: "Student not in this exam", help: "The QR code belongs to a student outside this class and section. Check the booklet was filed correctly." },
 };
 
 export const REVIEW_REASON: Record<ReviewReason, string> = {

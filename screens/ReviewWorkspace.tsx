@@ -186,7 +186,7 @@ export default function ReviewWorkspace() {
       <EmptyState
         className="py-24"
         title="Copy not found"
-        body="It may have been remapped to another student or removed from this assessment."
+        body="It may have been remapped to another student or removed from this exam."
         action={<Button variant="primary" onClick={() => go(me.role === "admin" ? "/verification" : "/teacher/pending")}>Back to copies</Button>}
       />
     );
@@ -271,7 +271,7 @@ export default function ReviewWorkspace() {
             title={`Verified · ${total}/${assessment.totalMarks} marks locked`}
             action={nextPending ? <Button variant="primary" size="sm" onClick={() => go(`/review/${nextPending.id}`)} iconRight={<ChevronRight size={15} strokeWidth={2} />}>Next copy: {state.students.find((s) => s.id === nextPending.studentId)?.name}</Button> : <Button size="sm" onClick={() => go(backTo)}>Back to copies</Button>}
           >
-            {nextPending ? "Ready for the next copy in your queue." : "That was the last copy waiting in this assessment."}
+            {nextPending ? "Ready for the next copy in your queue." : "That was the last copy waiting in this exam."}
           </Banner>
         )}
         {verified && !justVerified && (

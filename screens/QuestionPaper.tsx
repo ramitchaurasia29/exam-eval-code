@@ -30,7 +30,7 @@ export default function QuestionPaper({ embed }: { embed?: Embed }) {
   const sheets = state.sheets.filter((s) => s.assessmentId === id);
   const locked = sheets.length > 0;
 
-  if (!assessment) return <Page><EmptyState title="Assessment not found" body="This assessment may have been removed or the link may be out of date." action={<Button onClick={() => navigate("/assessments")}>View assessments</Button>} /></Page>;
+  if (!assessment) return <Page><EmptyState title="Exam not found" body="This exam may have been removed or the link may be out of date." action={<Button onClick={() => navigate("/assessments")}>View exams</Button>} /></Page>;
 
   const questions = assessment.questions;
   const marks = questions.reduce((sum, q) => sum + (Number(q.marks) || 0), 0);
@@ -87,7 +87,7 @@ export default function QuestionPaper({ embed }: { embed?: Embed }) {
       </Panel>
     ) : <>
       {assessment.questionsConfirmed && !editing && <Banner tone="success" className="mb-4" title="Question structure confirmed">The extracted structure is read-only. Stable question IDs are retained for answer keys and marking.</Banner>}
-      {locked && <Banner tone="info" className="mb-4" title="Question structure and paper versions are locked">Copies have already been uploaded for this assessment. Editing or replacing the question paper is unavailable.</Banner>}
+      {locked && <Banner tone="info" className="mb-4" title="Question structure and paper versions are locked">Copies have already been uploaded for this exam. Editing or replacing the question paper is unavailable.</Banner>}
       {error && <Banner tone="danger" className="mb-4">{error}</Banner>}
       <div className="sticky top-0 z-20 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2 shadow-xs">
         <div className={cx("text-sm font-medium tabular-nums", marks !== assessment.totalMarks ? "text-danger" : "text-ink-2")}>{questions.length} questions · {marks} of {assessment.totalMarks} marks</div>
@@ -114,7 +114,7 @@ export default function QuestionPaper({ embed }: { embed?: Embed }) {
           </div>
         </Panel>
         <Panel title="Extracted questions" actions={assessment.questionsConfirmed && <span className="text-xs text-ink-3">{editing ? "Editing" : "Read only"}</span>} flush>
-          {!questions.length ? <EmptyState title="No questions extracted" body="Add questions to build the assessment structure." /> : <ol className="divide-y divide-border">
+          {!questions.length ? <EmptyState title="No questions extracted" body="Add questions to build the exam structure." /> : <ol className="divide-y divide-border">
             {questions.map((q) => <li key={q.id} className="space-y-3 p-4">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-[72px_minmax(100px,1fr)_84px_72px_auto] sm:items-end">
                 <Field label="Number"><Input aria-label={`Question ${q.number} number`} className="max-w-20" value={q.number} disabled={!editing && assessment.questionsConfirmed || locked} onChange={(e) => update(q, { number: e.target.value })} /></Field>

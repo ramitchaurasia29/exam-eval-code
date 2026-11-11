@@ -16,16 +16,16 @@ export default function AssessmentCreate({ onCreated }: { onCreated: (id: string
   const init = useScreenInit();
   const navigate = useNavigate();
   const [values, setValues] = useState<FormValues>({ name: "", academicYear: state.settings.academicYear, grade: "", sections: [], subject: "", type: "", examDate: "", totalMarks: "", durationMin: "", instructions: "", teacherIds: role === "teacher" ? [me.id] : [] });
-  const [errors, setErrors] = useState<Errors>(() => init.showErrors ? { name: "Enter an assessment name", grade: "Choose a class", sections: "Select at least one section", subject: "Choose a subject", type: "Choose an assessment type", examDate: "Choose an exam date", totalMarks: "Enter a total greater than zero" } : {});
+  const [errors, setErrors] = useState<Errors>(() => init.showErrors ? { name: "Enter an exam name", grade: "Choose a class", sections: "Select at least one section", subject: "Choose a subject", type: "Choose an exam type", examDate: "Choose an exam date", totalMarks: "Enter a total greater than zero" } : {});
   const refs = useRef<Record<string, HTMLElement | null>>({});
   const set = (key: keyof FormValues, value: string | string[]) => setValues((v) => ({ ...v, [key]: value }));
   const validate = (): Errors => ({
-    ...(!values.name.trim() ? { name: "Enter an assessment name" } : {}),
+    ...(!values.name.trim() ? { name: "Enter an exam name" } : {}),
     ...(!values.academicYear.trim() ? { academicYear: "Enter an academic year" } : {}),
     ...(!values.grade ? { grade: "Choose a class" } : {}),
     ...(values.sections.length === 0 ? { sections: "Select at least one section" } : {}),
     ...(!values.subject ? { subject: "Choose a subject" } : {}),
-    ...(!values.type ? { type: "Choose an assessment type" } : {}),
+    ...(!values.type ? { type: "Choose an exam type" } : {}),
     ...(!values.examDate ? { examDate: "Choose an exam date" } : {}),
     ...(!values.totalMarks || Number(values.totalMarks) <= 0 || !Number.isFinite(Number(values.totalMarks)) ? { totalMarks: "Enter a total greater than zero" } : {}),
     ...(values.durationMin && (Number(values.durationMin) <= 0 || !Number.isFinite(Number(values.durationMin))) ? { durationMin: "Enter a duration greater than zero" } : {}),
@@ -42,7 +42,7 @@ export default function AssessmentCreate({ onCreated }: { onCreated: (id: string
       ...(role === "admin" ? { teacherIds: values.teacherIds } : { teacherIds: [me.id] }),
     };
     const id = actions.createAssessment(input);
-    actions.toast("Assessment created", { tone: "success" });
+    actions.toast("Exam created", { tone: "success" });
     onCreated(id);
   };
   const toggle = (key: keyof FormValues, val: string) => {
@@ -52,14 +52,14 @@ export default function AssessmentCreate({ onCreated }: { onCreated: (id: string
   const assignRef = (key: string) => (el: HTMLElement | null) => { refs.current[key] = el; };
 
   return <>
-      <Panel title="Assessment details">
+      <Panel title="Exam details">
         <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="space-y-4">
-          <Field label="Assessment name" htmlFor="assessment-name" error={errors.name}><Input id="assessment-name" ref={assignRef("name")} value={values.name} invalid={!!errors.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Science Midterm" /></Field>
+          <Field label="Exam name" htmlFor="assessment-name" error={errors.name}><Input id="assessment-name" ref={assignRef("name")} value={values.name} invalid={!!errors.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Science Midterm" /></Field>
           <Field label="Academic year" htmlFor="academic-year" error={errors.academicYear}><Input id="academic-year" ref={assignRef("academicYear")} value={values.academicYear} invalid={!!errors.academicYear} onChange={(e) => set("academicYear", e.target.value)} /></Field>
           <Field label="Class" htmlFor="grade" error={errors.grade}><Select id="grade" ref={assignRef("grade")} value={values.grade} invalid={!!errors.grade} onChange={(e) => set("grade", e.target.value)}><option value="">Select class</option>{[6, 7, 8, 9, 10, 11, 12].map((g) => <option key={g} value={String(g)}>Class {g}</option>)}</Select></Field>
           <Field label="Sections" error={errors.sections}><div ref={assignRef("sections")} tabIndex={-1} className="flex flex-wrap gap-x-5 gap-y-2 pt-1">{sections.map((s) => <label key={s} className="flex items-center gap-2 text-[13px] text-ink-2"><Checkbox checked={values.sections.includes(s)} onChange={() => toggle("sections", s)} label={`Section ${s}`} />Section {s}</label>)}</div></Field>
           <Field label="Subject" htmlFor="subject" error={errors.subject}><Select id="subject" ref={assignRef("subject")} value={values.subject} invalid={!!errors.subject} onChange={(e) => set("subject", e.target.value)}><option value="">Select subject</option>{subjects.map((s) => <option key={s}>{s}</option>)}</Select></Field>
-          <Field label="Assessment type" htmlFor="assessment-type" error={errors.type}><Select id="assessment-type" ref={assignRef("type")} value={values.type} invalid={!!errors.type} onChange={(e) => set("type", e.target.value)}><option value="">Select type</option>{types.map((t) => <option key={t}>{t}</option>)}</Select></Field>
+          <Field label="Exam type" htmlFor="assessment-type" error={errors.type}><Select id="assessment-type" ref={assignRef("type")} value={values.type} invalid={!!errors.type} onChange={(e) => set("type", e.target.value)}><option value="">Select type</option>{types.map((t) => <option key={t}>{t}</option>)}</Select></Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Exam date" htmlFor="exam-date" error={errors.examDate}><Input id="exam-date" ref={assignRef("examDate")} type="date" value={values.examDate} invalid={!!errors.examDate} onChange={(e) => set("examDate", e.target.value)} /></Field>
             <Field label="Total marks" htmlFor="total-marks" error={errors.totalMarks}><Input id="total-marks" ref={assignRef("totalMarks")} type="number" min="1" step="1" value={values.totalMarks} invalid={!!errors.totalMarks} onChange={(e) => set("totalMarks", e.target.value)} placeholder="e.g. 40" /></Field>

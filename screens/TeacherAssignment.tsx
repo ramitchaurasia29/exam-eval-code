@@ -1,12 +1,33 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { Upload, UserPlus } from "lucide-react";
 import { useStore } from "../data/store";
 import { now, pct, relTime } from "../data/selectors";
 import type { AnswerSheet, Assessment, User } from "../data/types";
-import { Avatar, Banner, Button, Drawer, EmptyState, Field, Page, PageHeader, Panel, Progress, Radio, Select, Table, Td, Th, Tr } from "../components/ui";
+import { Avatar, Banner, Button, Checkbox, Drawer, EmptyState, Field, ICON, Input, Page, PageHeader, Panel, Progress, Radio, Select, Table, Td, Th, Tr } from "../components/ui";
 
+const SUBJECTS = ["Science", "Mathematics", "English", "Social Science", "Hindi", "Computer Science"];
 type Scope = "unassigned" | "section" | "reassign";
 export default function TeacherAssignment() {
   const { state, actions } = useStore();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [tForm, setTForm] = useState({ name: "", email: "", title: "", subjects: [] as string[] });
+  const [tErrors, setTErrors] = useState<Record<string, string>>({});
+  const [addedTeacher, setAddedTeacher] = useState<User | null>(null);
+  const setT = (k: "name" | "email" | "title", v: string) => { setTForm((f) => ({ ...f, [k]: v })); setTErrors((e) => ({ ...e, [k]: "" })); };
+  const openAddTeacher = () => { setTForm({ name: "", email: "", title: "", subjects: [] }); setTErrors({}); setAddedTeacher(null); setAddOpen(true); };
+  const submitTeacher = () => {
+    const e: Record<string, string> = {};
+    if (!tForm.name.trim()) e.name = "Enter the teacher's full name";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(tForm.email.trim())) e.email = "Enter a valid email address";
+    if (tForm.subjects.length === 0) e.subjects = "Select at least one subject";
+    setTErrors(e);
+    if (Object.keys(e).length) return;
+    const res = actions.addTeacher({ name: tForm.name, email: tForm.email, subjects: tForm.subjects, title: tForm.title });
+    if (!res.ok || !res.teacher) { setTErrors({ email: res.error ?? "Could not add teacher" }); return; }
+    setAddedTeacher(res.teacher);
+    actions.toast(`${res.teacher.name} added`, { tone: "success" });
+  };
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<Scope>("unassigned");
   const [assessmentId, setAssessmentId] = useState("");
@@ -54,15 +75,38 @@ export default function TeacherAssignment() {
   })).filter((r) => r.assigned > 0 || r.assessment.teacherIds.includes(r.teacher.id)), [state.users, state.assessments, state.sheets, state.audit]);
   const unassigned = state.sheets.filter((s) => s.evaluation === "evaluated" && !s.teacherId);
   return <Page wide>
-    <PageHeader title="Teachers" actions={<Button variant="primary" onClick={() => openDrawer()}>Assign copies</Button>} />
+    <PageHeader title="Teachers" meta={<span>{state.users.filter((u) => u.role === "teacher").length} teachers</span>} actions={<>
+      <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) actions.toast(`Selected ${f.name} for teacher import`, { tone: "neutral" }); e.target.value = ""; }} />
+      <Button variant="primary" icon={<UserPlus size={16} strokeWidth={ICON} />} onClick={openAddTeacher}>Add teacher</Button>
+      <Button variant="secondary" icon={<Upload size={16} strokeWidth={ICON} />} onClick={() => fileRef.current?.click()}>Upload multiple teachers</Button>
+      <Button variant="secondary" onClick={() => openDrawer()}>Assign copies</Button>
+    </>} />
     {unassigned.length > 0 && <Banner className="mb-4" title={`${unassigned.length} evaluated ${unassigned.length === 1 ? "copy is" : "copies are"} unassigned`} action={<Button size="sm" variant="secondary" onClick={() => openDrawer()}>Assign copies</Button>}>These copies need a teacher before verification can begin.</Banner>}
-    <Panel flush>
-      {teacherRows.length ? <Table><thead><tr><Th sticky>Teacher</Th><Th>Assessment</Th><Th align="right">Assigned</Th><Th align="right">Pending</Th><Th align="right">Verified</Th><Th align="right">Reopened</Th><Th className="w-36">Completion</Th><Th>Last activity</Th><Th align="right">Overdue</Th><Th /></tr></thead><tbody>{teacherRows.map((row) => <Tr key={`${row.teacher.id}-${row.assessment.id}`} onClick={() => setSelectedTeacherRow({ teacher: row.teacher, assessment: row.assessment })}>
+    <Panel title="All teachers" className="mb-4" flush>
+      <Table><thead><tr><Th sticky>Teacher</Th><Th>Email</Th><Th>Subjects</Th><Th align="right">Exams</Th></tr></thead><tbody>{state.users.filter((u) => u.role === "teacher").map((t) => <Tr key={t.id}>
+        <Td sticky><span className="flex items-center gap-2"><Avatar name={t.name} initials={t.initials} size="sm" /><span><span className="block font-medium text-ink">{t.name}</span><span className="text-xs text-ink-3">{t.title}</span></span></span></Td>
+        <Td>{t.email}</Td><Td>{t.subjects.join(", ")}</Td><Td align="right">{state.assessments.filter((a) => !a.archived && a.teacherIds.includes(t.id)).length}</Td>
+      </Tr>)}</tbody></Table>
+    </Panel>
+    <Panel title="Assignments and progress" flush>
+      {teacherRows.length ? <Table><thead><tr><Th sticky>Teacher</Th><Th>Exam</Th><Th align="right">Assigned</Th><Th align="right">Pending</Th><Th align="right">Verified</Th><Th align="right">Reopened</Th><Th className="w-36">Completion</Th><Th>Last activity</Th><Th align="right">Overdue</Th><Th /></tr></thead><tbody>{teacherRows.map((row) => <Tr key={`${row.teacher.id}-${row.assessment.id}`} onClick={() => setSelectedTeacherRow({ teacher: row.teacher, assessment: row.assessment })}>
         <Td sticky><span className="flex items-center gap-2"><Avatar name={row.teacher.name} initials={row.teacher.initials} size="sm" /><span><span className="block font-medium text-ink">{row.teacher.name}</span><span className="text-xs text-ink-3">{row.teacher.subjects.join(", ")}</span></span></span></Td><Td>{row.assessment.name}<span className="block text-xs text-ink-3">Class {row.assessment.grade}</span></Td><Td align="right">{row.assigned}</Td><Td align="right">{row.pending}</Td><Td align="right">{row.verified}</Td><Td align="right">{row.reopened}</Td><Td><Progress value={row.completion} tone={row.completion === 100 ? "success" : "info"} label={`${row.completion}% complete`} /><span className="mt-1 block text-xs text-ink-3">{row.completion}%</span></Td><Td>{row.lastActivity ? relTime(row.lastActivity) : <span className="text-ink-4">No activity</span>}</Td><Td align="right"><span className={row.overdue ? "font-medium text-danger" : "text-ink-3"}>{row.overdue || "–"}</span></Td><Td><Button size="sm" variant="ghost" disabled={!row.pending} onClick={(e) => { e.stopPropagation(); actions.remind(row.teacher.id, row.assessment.id, row.pending); actions.toast(`Reminder sent to ${row.teacher.name}`); }}>Send reminder</Button></Td>
       </Tr>)}</tbody></Table> : <EmptyState title="No teacher assignments" body="Assign evaluated copies to teachers to start verification." action={<Button variant="primary" onClick={() => openDrawer()}>Assign copies</Button>} />}
     </Panel>
 
-    <Drawer open={open} onClose={() => setOpen(false)} title="Assign copies" subtitle="Choose the assessment, copy scope and teacher." footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button variant="primary" disabled={!selectedIds.length || !teacherId} onClick={() => {
+    <Drawer open={addOpen} onClose={() => setAddOpen(false)} title={addedTeacher ? "Teacher added" : "Add teacher"} subtitle={addedTeacher ? undefined : "They can be assigned to exams and copies right away"}
+      footer={addedTeacher ? <><Button onClick={openAddTeacher}>Add another</Button><Button variant="primary" onClick={() => setAddOpen(false)}>Done</Button></> : <><Button variant="ghost" onClick={() => setAddOpen(false)}>Cancel</Button><Button variant="primary" onClick={submitTeacher}>Add teacher</Button></>}>
+      {addedTeacher ? <div className="space-y-4 p-5">
+        <div className="flex items-center gap-3"><Avatar name={addedTeacher.name} initials={addedTeacher.initials} size="lg" /><div><p className="font-medium text-ink">{addedTeacher.name}</p><p className="text-xs text-ink-3">{addedTeacher.title}</p></div></div>
+        <dl className="divide-y divide-border rounded-md border border-border px-3 text-[13px]"><div className="flex justify-between py-2"><dt className="text-ink-3">Email</dt><dd className="text-ink">{addedTeacher.email}</dd></div><div className="flex justify-between py-2"><dt className="text-ink-3">Subjects</dt><dd className="text-ink">{addedTeacher.subjects.join(", ")}</dd></div></dl>
+      </div> : <form className="space-y-4 p-5" onSubmit={(ev) => { ev.preventDefault(); submitTeacher(); }}>
+        <Field label="Full name" htmlFor="t-name" error={tErrors.name}><Input id="t-name" autoFocus value={tForm.name} invalid={!!tErrors.name} onChange={(e) => setT("name", e.target.value)} placeholder="e.g. Meera Iyer" /></Field>
+        <Field label="Email" htmlFor="t-email" error={tErrors.email}><Input id="t-email" type="email" value={tForm.email} invalid={!!tErrors.email} onChange={(e) => setT("email", e.target.value)} placeholder="name@greenfield.edu.in" /></Field>
+        <Field label="Subjects" error={tErrors.subjects} helper={!tErrors.subjects ? "Teachers are matched to exams by subject" : undefined}><div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-1">{SUBJECTS.map((sub) => <label key={sub} className="flex items-center gap-2 text-[13px] text-ink-2"><Checkbox checked={tForm.subjects.includes(sub)} onChange={(on) => { setTForm((f) => ({ ...f, subjects: on ? [...f.subjects, sub] : f.subjects.filter((x) => x !== sub) })); setTErrors((er) => ({ ...er, subjects: "" })); }} label={sub} />{sub}</label>)}</div></Field>
+        <Field label="Designation" htmlFor="t-title" optional><Input id="t-title" value={tForm.title} onChange={(e) => setT("title", e.target.value)} placeholder="e.g. Senior Science teacher" /></Field>
+      </form>}
+    </Drawer>
+    <Drawer open={open} onClose={() => setOpen(false)} title="Assign copies" subtitle="Choose the exam, copy scope and teacher." footer={<><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button variant="primary" disabled={!selectedIds.length || !teacherId} onClick={() => {
       const a = assessments.find((x) => x.id === assessmentId);
       const teacher = state.users.find((u) => u.id === teacherId);
       if (!a || !teacher) return;
@@ -72,7 +116,7 @@ export default function TeacherAssignment() {
       setOpen(false);
     }}>Assign {selectedIds.length} copies</Button></>}>
       <div className="space-y-5 p-5">
-        <Field label="Assessment"><Select value={assessmentId || activeAssessment?.id || ""} onChange={(e) => { const a = assessments.find((x) => x.id === e.target.value); setAssessmentId(e.target.value); setDeadlineValue(a?.deadline ?? ""); setSection(a?.sections[0] ?? "A"); setTeacherId(state.users.find((u) => u.role === "teacher" && a?.subject && u.subjects.includes(a.subject))?.id ?? ""); }}>{assessments.map((a) => <option key={a.id} value={a.id}>{a.name} · Class {a.grade} · {a.subject}</option>)}</Select></Field>
+        <Field label="Exam"><Select value={assessmentId || activeAssessment?.id || ""} onChange={(e) => { const a = assessments.find((x) => x.id === e.target.value); setAssessmentId(e.target.value); setDeadlineValue(a?.deadline ?? ""); setSection(a?.sections[0] ?? "A"); setTeacherId(state.users.find((u) => u.role === "teacher" && a?.subject && u.subjects.includes(a.subject))?.id ?? ""); }}>{assessments.map((a) => <option key={a.id} value={a.id}>{a.name} · Class {a.grade} · {a.subject}</option>)}</Select></Field>
         <fieldset className="space-y-2"><legend className="mb-2 text-[13px] font-medium text-ink">Copy scope</legend>
           <Radio name="scope" checked={scope === "unassigned"} onChange={() => setScope("unassigned")} label={`All unassigned copies (${state.sheets.filter((s) => s.assessmentId === (activeAssessment?.id ?? assessmentId) && s.evaluation === "evaluated" && !s.teacherId).length})`} />
           <Radio name="scope" checked={scope === "section"} onChange={() => setScope("section")} label="A section" description="Assign unassigned copies from one section." />

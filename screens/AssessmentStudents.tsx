@@ -21,7 +21,7 @@ export default function AssessmentStudents() {
   const [upload, setUpload] = useState<{ mode: "bulk" | "individual"; studentId?: string } | null>(null);
 
   const cohort = useMemo(() => assessment ? cohortOf(assessment, state.students).slice().sort((a, b) => a.section.localeCompare(b.section) || a.roll - b.roll) : [], [assessment, state.students]);
-  if (!assessment) return <EmptyState className="py-24" title="Assessment not found" body="It may have been removed or the link may be out of date." action={<ButtonLink to={role === "admin" ? "/assessments" : "/teacher/assessments"}>Back to assessments</ButtonLink>} />;
+  if (!assessment) return <EmptyState className="py-24" title="Exam not found" body="It may have been removed or the link may be out of date." action={<ButtonLink to={role === "admin" ? "/assessments" : "/teacher/assessments"}>Back to exams</ButtonLink>} />;
 
   const sheetOf = new Map(state.sheets.filter((s) => s.assessmentId === assessment.id).map((s) => [s.studentId, s]));
   const ready = assessment.answerKey.status === "approved" && assessment.rubric.status === "approved";

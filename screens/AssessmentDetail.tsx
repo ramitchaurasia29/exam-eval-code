@@ -32,7 +32,7 @@ export default function AssessmentDetail() {
   const { id } = useParams();
   const assessment = useAssessmentParam(id);
   const { state, role } = useStore();
-  if (!assessment) return <EmptyState className="py-24" title="Assessment not found" body="It may have been removed or the link may be out of date." action={<ButtonLink to={role === "admin" ? "/assessments" : "/teacher/assessments"}>Back to assessments</ButtonLink>} />;
+  if (!assessment) return <EmptyState className="py-24" title="Exam not found" body="It may have been removed or the link may be out of date." action={<ButtonLink to={role === "admin" ? "/assessments" : "/teacher/assessments"}>Back to exams</ButtonLink>} />;
   const ready = assessmentStatus(assessment, state.sheets) !== "draft" && assessment.answerKey.status === "approved" && assessment.rubric.status === "approved";
   const ownSheets = state.sheets.filter((s) => s.assessmentId === assessment.id);
   const cohort = cohortOf(assessment, state.students);
@@ -57,7 +57,7 @@ export default function AssessmentDetail() {
   return <Page wide>
     <AssessmentHeader assessment={assessment} tab="overview" actions={headActions} />
     {!ready ? <AssessmentSetup assessment={assessment} /> : <>
-      <section aria-label="Assessment pipeline" className="mb-5 overflow-hidden rounded-lg border border-border bg-surface shadow-xs">
+      <section aria-label="Exam pipeline" className="mb-5 overflow-hidden rounded-lg border border-border bg-surface shadow-xs">
         <ol className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
           {[
             { label: "Expected", value: cohort.length, note: `${assessment.sections.length ? `Class ${assessment.grade} ${assessment.sections.join(", ")}` : "No sections"}`, to: `/assessments/${assessment.id}/sheets` },

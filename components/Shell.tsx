@@ -85,7 +85,7 @@ function useNav(): NavGroup[] {
         {
           title: "Examinations",
           items: [
-            { to: "/assessments", label: "Assessments", icon: ClipboardList, match: ["/assessments"] },
+            { to: "/assessments", label: "Exam Evaluator", icon: ClipboardList, match: ["/assessments"] },
           ],
         },
         {
@@ -118,10 +118,10 @@ function useNav(): NavGroup[] {
     return [
       { items: [{ to: "/teacher", label: "Dashboard", icon: LayoutDashboard, end: true }] },
       {
-        title: "Assessments",
+        title: "Exam Evaluator",
         items: [
-          { to: "/teacher/assessments", label: "My assessments", icon: ClipboardList, match: ["/teacher/assessments", "/assessments/asm"] },
-          { to: "/assessments/new", label: "Create assessment", icon: FilePlus2, end: true },
+          { to: "/teacher/assessments", label: "My exams", icon: ClipboardList, match: ["/teacher/assessments", "/assessments/asm"] },
+          { to: "/assessments/new", label: "Create Exam", icon: FilePlus2, end: true },
           { to: "/teacher/answer-keys", label: "Answer keys", icon: KeyRound },
           { to: "/teacher/rubrics", label: "Rubric management", icon: ListChecks },
         ],
@@ -301,7 +301,7 @@ function GlobalSearch({ onNavigate }: { onNavigate: (to: string) => void }) {
       .filter((a) => role === "admin" || a.teacherIds.includes(me.id))
       .filter((a) => `${a.name} class ${a.grade} ${a.subject}`.toLowerCase().includes(term))
       .slice(0, 4)
-      .forEach((a) => out.push({ label: a.name, sub: `Class ${a.grade} · ${a.subject}`, to: `/assessments/${a.id}`, kind: "Assessment" }));
+      .forEach((a) => out.push({ label: a.name, sub: `Class ${a.grade} · ${a.subject}`, to: `/assessments/${a.id}`, kind: "Exam" }));
     const visibleSheets = role === "admin" ? state.sheets : state.sheets.filter((s) => s.teacherId === me.id);
     const sids = new Set(visibleSheets.map((s) => s.studentId));
     state.students
@@ -334,14 +334,14 @@ function GlobalSearch({ onNavigate }: { onNavigate: (to: string) => void }) {
           }
           if (e.key === "Escape") setOpen(false);
         }}
-        aria-label="Search students, QR IDs and assessments"
-        placeholder="Search students, QR IDs, assessments"
+        aria-label="Search students, QR IDs and exams"
+        placeholder="Search students, QR IDs, exams"
         className="h-8 w-full rounded-md border border-border bg-subtle pl-8 pr-3 text-[13px] text-ink placeholder:text-ink-4 focus:border-primary focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-ring/60"
       />
       {open && q.trim().length >= 2 && (
         <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-md border border-border bg-surface shadow-md animate-fade-in">
           {results.length === 0 ? (
-            <p className="px-3 py-3 text-[13px] text-ink-3">No students or assessments match "{q.trim()}"</p>
+            <p className="px-3 py-3 text-[13px] text-ink-3">No students or exams match "{q.trim()}"</p>
           ) : (
             <ul className="max-h-80 overflow-y-auto py-1">
               {results.map((r, i) => (

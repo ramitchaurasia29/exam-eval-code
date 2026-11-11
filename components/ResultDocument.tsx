@@ -16,13 +16,13 @@ export default function ResultDocument({ sheet, distribution, audience, assessme
       <header className="border-b border-border bg-subtle px-5 py-5 sm:px-8">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">{schoolName}</p>
         <h1 className="mt-1 text-xl font-semibold tracking-tight text-ink">Examination Cell</h1>
-        <p className="mt-1 text-sm text-ink-3">Official assessment result · {audience === "student" ? "Student copy" : "Guardian copy"}</p>
+        <p className="mt-1 text-sm text-ink-3">Official exam result · {audience === "student" ? "Student copy" : "Guardian copy"}</p>
       </header>
       <div className="space-y-6 px-5 py-5 sm:px-8 sm:py-7">
         <VerificationSeal verified={verified} teacher={teacher} at={sheet.verifiedAt ? fmtDateTime(sheet.verifiedAt) : undefined} />
         <div className="grid gap-5 sm:grid-cols-2">
           <div><h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-3">Student</h2><p className="text-lg font-semibold text-ink">{student.name}</p><dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[13px]"><dt className="text-ink-3">Class / Section</dt><dd className="text-ink-2">{student.grade} / {student.section}</dd><dt className="text-ink-3">Roll number</dt><dd className="text-ink-2">{student.roll}</dd></dl></div>
-          <div><h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-3">Assessment</h2><p className="text-lg font-semibold text-ink">{assessment.name}</p><dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[13px]"><dt className="text-ink-3">Subject</dt><dd className="text-ink-2">{assessment.subject}</dd><dt className="text-ink-3">Exam date</dt><dd className="text-ink-2">{fmtDate(assessment.examDate)}</dd><dt className="text-ink-3">Maximum marks</dt><dd className="text-ink-2">{assessment.totalMarks}</dd></dl></div>
+          <div><h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-3">Exam</h2><p className="text-lg font-semibold text-ink">{assessment.name}</p><dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[13px]"><dt className="text-ink-3">Subject</dt><dd className="text-ink-2">{assessment.subject}</dd><dt className="text-ink-3">Exam date</dt><dd className="text-ink-2">{fmtDate(assessment.examDate)}</dd><dt className="text-ink-3">Maximum marks</dt><dd className="text-ink-2">{assessment.totalMarks}</dd></dl></div>
         </div>
         <div className="flex flex-wrap items-end justify-between gap-3 rounded-md bg-subtle px-4 py-4 sm:px-5">
           <div><p className="text-xs text-ink-3">Final score</p><p className="mt-0.5 text-4xl font-semibold tracking-tight tabular-nums text-ink">{total}<span className="text-xl font-normal text-ink-3"> / {assessment.totalMarks}</span></p></div>

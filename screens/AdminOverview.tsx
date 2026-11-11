@@ -29,7 +29,7 @@ export default function AdminOverview() {
   const c = countsFor(sheets, state.distributions, state.students, openUnmatched.length, scoped);
 
   const funnel = [
-    { label: "Expected students", value: c.expected, note: `${scoped.filter((a) => a.paper && a.questionsConfirmed).length} assessments`, to: "/assessments" },
+    { label: "Expected students", value: c.expected, note: `${scoped.filter((a) => a.paper && a.questionsConfirmed).length} exams`, to: "/assessments" },
     { label: "Uploaded copies", value: c.uploaded, note: c.unmatched ? `${c.unmatched} need mapping` : "All mapped", warn: c.unmatched > 0, to: c.unmatched ? "/unmatched" : "/assessments" },
     { label: "Identified", value: c.identified, note: `${pct(c.identified, c.uploaded)}% of uploaded`, to: "/assessments" },
     { label: "AI evaluated", value: c.aiEvaluated, note: c.failed + c.needsReview ? `${c.pendingEvaluation} in queue · ${c.failed + c.needsReview} exceptions` : `${c.pendingEvaluation} in queue`, warn: c.failed + c.needsReview > 0, to: "/queue" },
@@ -45,7 +45,7 @@ export default function AdminOverview() {
     const failed = sheets.filter((s) => s.evaluation === "failed");
     const nr = sheets.filter((s) => s.evaluation === "needs_review");
     if (failed.length || nr.length)
-      items.push({ icon: Workflow, tone: "danger", title: `${failed.length + nr.length} evaluation ${failed.length + nr.length === 1 ? "job needs" : "jobs need"} action`, body: [failed.length && `${failed.length} failed`, nr.length && `${nr.length} with missing pages`].filter(Boolean).join(" · "), to: "/assessments", action: "Open assessments" });
+      items.push({ icon: Workflow, tone: "danger", title: `${failed.length + nr.length} evaluation ${failed.length + nr.length === 1 ? "job needs" : "jobs need"} action`, body: [failed.length && `${failed.length} failed`, nr.length && `${nr.length} with missing pages`].filter(Boolean).join(" · "), to: "/assessments", action: "Open exams" });
     const smsFailed = state.distributions.filter((d) => ids.has(d.assessmentId) && d.status === "failed" && latestDistribution(d.sheetId, state.distributions)?.id === d.id);
     if (smsFailed.length) items.push({ icon: MessageSquareWarning, tone: "danger", title: `${smsFailed.length} SMS not delivered`, body: "Guardians haven't received these results", to: "/distribution", action: "Retry" });
     const unassigned = sheets.filter((s) => !s.teacherId && s.evaluation === "evaluated");
@@ -80,8 +80,8 @@ export default function AdminOverview() {
         title="Overview"
         actions={
           <>
-            <Select aria-label="Assessment scope" value={scope} onChange={(e) => setScope(e.target.value)} className="w-56">
-              <option value="all">All assessments</option>
+            <Select aria-label="Exam scope" value={scope} onChange={(e) => setScope(e.target.value)} className="w-56">
+              <option value="all">All exams</option>
               {active.map((a) => (
                 <option key={a.id} value={a.id}>{a.name} · Class {a.grade}</option>
               ))}
@@ -132,12 +132,12 @@ export default function AdminOverview() {
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        {/* Assessments in flight */}
-        <Panel title="Assessments" actions={<ButtonLink to="/assessments" variant="ghost" size="sm">View all</ButtonLink>} flush>
+        {/* Exams in flight */}
+        <Panel title="Exams" actions={<ButtonLink to="/assessments" variant="ghost" size="sm">View all</ButtonLink>} flush>
           <Table>
             <thead>
               <tr>
-                <Th sticky>Assessment</Th>
+                <Th sticky>Exam</Th>
                 <Th>Status</Th>
                 <Th className="w-52">Progress</Th>
                 <Th align="right">Uploaded</Th>

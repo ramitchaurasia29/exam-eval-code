@@ -24,7 +24,7 @@ export default function Login() {
   return <main className="min-h-screen bg-surface lg:grid lg:grid-cols-2">
     <section className="flex min-h-0 flex-col justify-between bg-charcoal px-5 py-5 text-on-charcoal sm:px-10 sm:py-8 lg:min-h-screen lg:px-14 lg:py-12">
       <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-sm font-bold text-on-primary">GP</span><span className="text-sm font-semibold">{state.settings.schoolName}</span></div>
-      <div className="my-5 lg:my-auto lg:py-14"><p className="text-xs font-medium uppercase tracking-[0.14em] text-on-charcoal-2">Assessment evaluation</p><h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">Examination workflow</h1><ol className="mt-7 space-y-3 text-sm text-on-charcoal-2"><li>1. Set up the paper, key and rubric</li><li>2. Upload scanned booklets</li><li>3. Review AI marks</li><li>4. Verify and release</li></ol></div>
+      <div className="my-5 lg:my-auto lg:py-14"><p className="text-xs font-medium uppercase tracking-[0.14em] text-on-charcoal-2">Exam evaluation</p><h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">Examination workflow</h1><ol className="mt-7 space-y-3 text-sm text-on-charcoal-2"><li>1. Set up the paper, key and rubric</li><li>2. Upload scanned booklets</li><li>3. Review AI marks</li><li>4. Verify and release</li></ol></div>
       <p className="hidden text-xs text-on-charcoal-2 lg:block">Staff access · {state.settings.academicYear}</p>
     </section>
     <section className="flex items-center justify-center px-5 py-8 sm:px-10 lg:px-14"><div className="w-full max-w-md">

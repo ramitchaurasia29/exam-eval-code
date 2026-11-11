@@ -26,7 +26,7 @@ export default function AnswerKey({ embed }: { embed?: Embed }) {
   const [error, setError] = useState(typeof init.approveError === "string" ? init.approveError : "");
   const [editOpen, setEditOpen] = useState(!!init.editOpen);
 
-  if (!assessment) return <Page><EmptyState title="Assessment not found" body="This assessment may have been removed or the link may be out of date." action={<Button onClick={() => navigate("/assessments")}>View assessments</Button>} /></Page>;
+  if (!assessment) return <Page><EmptyState title="Exam not found" body="This exam may have been removed or the link may be out of date." action={<Button onClick={() => navigate("/assessments")}>View exams</Button>} /></Page>;
   const copies = state.sheets.filter((s) => s.assessmentId === assessment.id);
   const evaluating = copies.some((s) => s.evaluation === "queued" || s.evaluation === "processing");
   const readonly = assessment.answerKey.status === "approved";

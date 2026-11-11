@@ -35,10 +35,10 @@ export default function SetupList({ kind }: { kind: Kind }) {
   };
 
   return <Page>
-    <PageHeader title={title} meta={<span>{kind === "answer-key" ? "Review and approve answer keys for your assessments." : "Manage marking criteria and approved rubric versions."}</span>} />
+    <PageHeader title={title} meta={<span>{kind === "answer-key" ? "Review and approve answer keys for your exams." : "Manage marking criteria and approved rubric versions."}</span>} />
     <Tabs items={[{ id: "needs", label: "Needs action", count: needsCount }, { id: "approved", label: "Approved", count: approvedCount }]} value={tab} onChange={setTab} className="mb-4" />
     {!rows.length ? <div className="rounded-lg border border-border bg-surface"><EmptyState title={tab === "approved" ? "No approved items" : "Nothing needs action"} body={tab === "approved" ? "Approved setup items will appear here." : "All available setup items are approved."} /></div> : <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-xs">
-      <Table><thead><tr><Th sticky>Assessment</Th><Th>Subject</Th><Th>Status</Th><Th>Version</Th>{kind === "answer-key" && <Th>Source</Th>}<Th align="right">Questions</Th><Th>Approved</Th><Th align="right">Action</Th></tr></thead>
+      <Table><thead><tr><Th sticky>Exam</Th><Th>Subject</Th><Th>Status</Th><Th>Version</Th>{kind === "answer-key" && <Th>Source</Th>}<Th align="right">Questions</Th><Th>Approved</Th><Th align="right">Action</Th></tr></thead>
         <tbody>{rows.map((a) => {
           const status = statusFor(a);
           const info = status === "approved" ? { label: "Approved", tone: "success" as const } : status === "draft" ? { label: "Draft", tone: "warning" as const } : status === "generating" ? { label: "Generating", tone: "info" as const } : { label: "None", tone: "muted" as const };

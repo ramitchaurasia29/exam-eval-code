@@ -18,7 +18,7 @@ export default function TeacherDashboard() {
   const unreadNotifications = state.notifications.filter((n) => n.userId === me.id && !n.read);
   const recentNotifications = state.notifications.filter((n) => n.userId === me.id).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 3);
   const statItems = [
-    { label: "Assigned assessments", value: assignedAssessments.length, to: "/teacher/assessments" },
+    { label: "Assigned exams", value: assignedAssessments.length, to: "/teacher/assessments" },
     { label: "Assigned copies", value: mine.length + state.sheets.filter((s) => s.teacherId === me.id && s.evaluation !== "evaluated").length, to: "/teacher/pending" },
     { label: "AI evaluated", value: mine.length, to: "/teacher/pending" },
     { label: "Pending verification", value: pending.length, to: "/teacher/pending", tone: pending.length ? "warning" as const : undefined },
@@ -28,7 +28,7 @@ export default function TeacherDashboard() {
   ];
   return (
     <Page>
-      <PageHeader title="Dashboard" actions={<ButtonLink to="/assessments/new" variant="secondary" icon={<FilePlus2 size={16} strokeWidth={ICON} />}>Create assessment</ButtonLink>} />
+      <PageHeader title="Dashboard" actions={<ButtonLink to="/assessments/new" variant="secondary" icon={<FilePlus2 size={16} strokeWidth={ICON} />}>Create Exam</ButtonLink>} />
       <div className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <Panel title="Continue reviewing" actions={<ButtonLink to="/teacher/pending" variant="ghost" size="sm">View all</ButtonLink>} flush>
           {nextCopies.length === 0 ? (
@@ -36,7 +36,7 @@ export default function TeacherDashboard() {
           ) : (
             <>
               <Table>
-                <thead><tr><Th sticky>Student</Th><Th>Assessment</Th><Th>AI marks</Th><Th>Flags</Th><Th>Status</Th><Th /></tr></thead>
+                <thead><tr><Th sticky>Student</Th><Th>Exam</Th><Th>AI marks</Th><Th>Flags</Th><Th>Status</Th><Th /></tr></thead>
                 <tbody>{nextCopies.map((sheet) => {
                   const student = state.students.find((s) => s.id === sheet.studentId)!;
                   const assessment = state.assessments.find((a) => a.id === sheet.assessmentId)!;
@@ -62,22 +62,22 @@ export default function TeacherDashboard() {
       </div>
       <StatStrip items={statItems} className="mb-5" />
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <Panel title="My assessments" actions={<ButtonLink to="/teacher/assessments" variant="ghost" size="sm">View all</ButtonLink>} flush>
-          {assignedAssessments.length ? <Table><thead><tr><Th sticky>Assessment</Th><Th>Status</Th><Th className="w-48">My copy progress</Th><Th>Deadline</Th></tr></thead><tbody>
+        <Panel title="My exams" actions={<ButtonLink to="/teacher/assessments" variant="ghost" size="sm">View all</ButtonLink>} flush>
+          {assignedAssessments.length ? <Table><thead><tr><Th sticky>Exam</Th><Th>Status</Th><Th className="w-48">My copy progress</Th><Th>Deadline</Th></tr></thead><tbody>
             {assignedAssessments.map((assessment) => {
               const copies = state.sheets.filter((s) => s.assessmentId === assessment.id && s.teacherId === me.id);
               const evaluated = copies.filter((s) => s.evaluation === "evaluated").length;
               const done = copies.filter((s) => s.verification === "verified").length;
               return <Tr key={assessment.id} onClick={() => navigate(`/assessments/${assessment.id}`)}><Td sticky><span className="font-medium text-ink">{assessment.name}</span><span className="block text-xs text-ink-3">Class {assessment.grade} · {assessment.subject}</span></Td><Td><StatusText {...ASSESSMENT_STATUS[assessmentStatus(assessment, state.sheets)]} /></Td><Td><StackBar total={Math.max(copies.length, 1)} parts={[{ value: done, cls: "bg-primary", label: "Verified" }, { value: Math.max(0, evaluated - done), cls: "bg-primary/30", label: "AI evaluated" }, { value: copies.length - evaluated, cls: "bg-ink-4/50", label: "Processing" }]} /><span className="mt-1 block text-xs text-ink-3">{done} of {copies.length} verified</span></Td><Td>{assessment.deadline ? fmtShortDate(assessment.deadline) : <span className="text-ink-4">Not set</span>}</Td></Tr>;
             })}
-          </tbody></Table> : <EmptyState title="No assigned assessments" body="Assessments assigned to you will appear here." />}
+          </tbody></Table> : <EmptyState title="No assigned exams" body="Exams assigned to you will appear here." />}
         </Panel>
         <Panel title="Setup to finish" flush>
           {ownedSetup.length ? <ul className="divide-y divide-border">{ownedSetup.map((assessment) => {
             const step = assessment.answerKey.status !== "approved" ? "answer-key" : "rubric";
             const label = step === "answer-key" ? "Answer key needs approval" : "Rubric needs approval";
             return <li key={assessment.id}><Link to={`/assessments/${assessment.id}/setup/${step}`} className="block px-4 py-3 hover:bg-subtle"><span className="block text-[13px] font-medium text-ink">{assessment.name}</span><span className="text-xs text-warning">{label} · Class {assessment.grade}</span></Link></li>;
-          })}</ul> : <p className="px-4 py-6 text-center text-[13px] text-ink-3">Your assessment setup is up to date.</p>}
+          })}</ul> : <p className="px-4 py-6 text-center text-[13px] text-ink-3">Your exam setup is up to date.</p>}
         </Panel>
       </div>
     </Page>

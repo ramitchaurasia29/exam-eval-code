@@ -20,7 +20,7 @@ export default function Notifications() {
     <PageHeader title="Notifications" actions={<Button variant="secondary" disabled={!unreadCount} icon={<CheckCheck size={15} strokeWidth={ICON} /> } onClick={actions.markAllRead}>Mark all as read</Button>} />
     <Panel flush>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2.5"><Segmented value={filter} onChange={setFilter} items={[{ id: "all", label: "All" }, { id: "unread", label: "Unread", icon: <span className="rounded-sm bg-muted px-1.5 text-xs tabular-nums">{unreadCount}</span> }]} /></div>
-      {visible.length === 0 ? <EmptyState icon={<Bell size={28} strokeWidth={ICON} />} title={filter === "unread" ? "You're all caught up" : "No notifications"} body={filter === "unread" ? "There are no unread notifications." : "Notifications about your assessments and copies will appear here."} /> : <div>
+      {visible.length === 0 ? <EmptyState icon={<Bell size={28} strokeWidth={ICON} />} title={filter === "unread" ? "You're all caught up" : "No notifications"} body={filter === "unread" ? "There are no unread notifications." : "Notifications about your exams and copies will appear here."} /> : <div>
         {today.length > 0 && <NotificationGroup title="Today" items={today} onOpen={openNotification} />}
         {earlier.length > 0 && <NotificationGroup title="Earlier" items={earlier} onOpen={openNotification} />}
       </div>}

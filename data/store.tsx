@@ -177,7 +177,7 @@ function useStoreImpl() {
     ...s.notifications,
   ];
   const studentName = (s: State, id: string) => s.students.find((x) => x.id === id)?.name ?? "Unknown student";
-  const asmName = (s: State, id: string) => s.assessments.find((x) => x.id === id)?.name ?? "Assessment";
+  const asmName = (s: State, id: string) => s.assessments.find((x) => x.id === id)?.name ?? "Exam";
   const patchAsm = (s: State, id: string, fn: (a: Assessment) => Assessment): Assessment[] =>
     s.assessments.map((a) => (a.id === id ? fn(a) : a));
   const patchSheet = (s: State, id: string, fn: (x: AnswerSheet) => AnswerSheet): AnswerSheet[] =>
@@ -373,7 +373,7 @@ function useStoreImpl() {
         return {
           ...s,
           assessments: [a, ...s.assessments],
-          audit: audit(s, { category: "assessment", action: "Created assessment", target: `${a.name} · Class ${a.grade}`, href: `/assessments/${id}` }),
+          audit: audit(s, { category: "assessment", action: "Created exam", target: `${a.name} · Class ${a.grade}`, href: `/assessments/${id}` }),
         };
       });
       return id;
@@ -383,16 +383,16 @@ function useStoreImpl() {
       set((s) => ({
         ...s,
         assessments: patchAsm(s, id, (a) => ({ ...a, archived })),
-        audit: audit(s, { category: "assessment", action: archived ? "Archived assessment" : "Restored assessment", target: asmName(s, id) }),
+        audit: audit(s, { category: "assessment", action: archived ? "Archived exam" : "Restored exam", target: asmName(s, id) }),
       }));
     };
 
     /** Upload or replace the question paper; extraction runs and needs confirming again. */
     const uploadPaper = (id: string, fileName: string, pages: number): Result => {
       const a = ref.current.assessments.find((x) => x.id === id);
-      if (!a) return { ok: false, error: "Assessment not found" };
+      if (!a) return { ok: false, error: "Exam not found" };
       if (ref.current.sheets.some((x) => x.assessmentId === id))
-        return { ok: false, error: "Copies are already uploaded for this assessment. The paper can't be replaced after evaluation starts." };
+        return { ok: false, error: "Copies are already uploaded for this exam. The paper can't be replaced after evaluation starts." };
       set((s) => {
         const version = (a.paper?.version ?? 0) + 1;
         const pv = { version, fileName, pages, uploadedAt: nowIso(), uploadedBy: s.userId };
@@ -463,7 +463,7 @@ function useStoreImpl() {
       if (nums.some((n) => !n || n === "?")) return { ok: false, error: "Every question needs a number" };
       if (a.questions.some((qq) => !qq.text.trim())) return { ok: false, error: "Every question needs its text" };
       const sum = a.questions.reduce((t, qq) => t + qq.marks, 0);
-      if (sum !== a.totalMarks) return { ok: false, error: `Question marks add up to ${sum}, but the assessment total is ${a.totalMarks}. Fix the marks or the total.` };
+      if (sum !== a.totalMarks) return { ok: false, error: `Question marks add up to ${sum}, but the exam total is ${a.totalMarks}. Fix the marks or the total.` };
       set((s) => ({
         ...s,
         assessments: patchAsm(s, aid, (x) => ({ ...x, questionsConfirmed: true, questions: x.questions.map((qq) => ({ ...qq, extractionIssue: undefined })) })),
@@ -598,16 +598,16 @@ function useStoreImpl() {
     const startUpload = (input: UploadInput): Result => {
       const s0 = ref.current;
       const a = s0.assessments.find((x) => x.id === input.assessmentId);
-      if (!a) return { ok: false, error: "Choose an assessment" };
+      if (!a) return { ok: false, error: "Choose an exam" };
       if (a.answerKey.status !== "approved" || a.rubric.status !== "approved")
-        return { ok: false, error: "Approve the answer key and rubric for this assessment before uploading copies" };
+        return { ok: false, error: "Approve the answer key and rubric for this exam before uploading copies" };
       if (!/\.pdf$/i.test(input.fileName)) return { ok: false, error: "Upload a PDF file" };
       if (input.kind === "individual") {
         if (!input.studentId) return { ok: false, error: "Choose the student this copy belongs to" };
         const st = s0.students.find((x) => x.id === input.studentId)!;
         if (st.grade !== a.grade || !a.sections.includes(st.section)) return { ok: false, error: `${st.name} isn't in Class ${a.grade} ${a.sections.join(", ")}` };
         if (s0.sheets.some((x) => x.assessmentId === a.id && x.studentId === st.id))
-          return { ok: false, error: `${st.name} already has a copy for this assessment. Remove it before uploading another.` };
+          return { ok: false, error: `${st.name} already has a copy for this exam. Remove it before uploading another.` };
       }
       const id = uid("bt");
       const cohort = cohortOf(a, s0.students).filter((x) => !input.section || x.section === input.section);
@@ -649,7 +649,7 @@ function useStoreImpl() {
       const a = s0.assessments.find((x) => x.id === item.assessmentId)!;
       const st = s0.students.find((x) => x.id === studentId);
       if (!st) return { ok: false, error: "Student not found" };
-      if (st.grade !== a.grade || !a.sections.includes(st.section)) return { ok: false, error: `${st.name} is in Class ${st.grade}${st.section}, which isn't part of this assessment` };
+      if (st.grade !== a.grade || !a.sections.includes(st.section)) return { ok: false, error: `${st.name} is in Class ${st.grade}${st.section}, which isn't part of this exam` };
       if (s0.sheets.some((x) => x.assessmentId === a.id && x.studentId === st.id))
         return { ok: false, error: `${st.name} already has a mapped copy. Discard this booklet as a duplicate, or remap the existing copy first.` };
       set((s) => ({
@@ -682,6 +682,14 @@ function useStoreImpl() {
         audit: audit(s, { category: "mapping", action: "Mapped booklet to student", target: `${st.name} · Class ${st.grade}${st.section} roll no ${st.roll}`, detail: `Pages ${item.pagesFrom}–${item.pagesTo} · ${item.decoded ?? "no barcode"}`, href: "/unmatched" }),
       }));
       return { ok: true };
+    };
+    const addTeacher = (input: { name: string; email: string; subjects: string[]; title?: string }): Result & { teacher?: User } => {
+      const email = input.email.trim().toLowerCase();
+      if (ref.current.users.some((u) => u.email.toLowerCase() === email)) return { ok: false, error: "A user with this email already exists" };
+      const initials = input.name.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+      const teacher: User = { id: uid("u"), name: input.name.trim(), initials, role: "teacher", email, title: input.title?.trim() || `${input.subjects.join(" & ")} teacher`, subjects: input.subjects };
+      set((s) => ({ ...s, users: [...s.users, teacher], audit: audit(s, { category: "access", action: "Added teacher", target: teacher.name, detail: `${teacher.email} · ${teacher.subjects.join(", ")}` }) }));
+      return { ok: true, teacher };
     };
     const addStudent = (input: { name: string; grade: string; section: string; roll: number; guardianName: string; relation: Guardian["relation"]; phone: string | null }): Result & { student?: Student } => {
       const cur = ref.current.students;
@@ -960,7 +968,7 @@ function useStoreImpl() {
       generateAnswerKey, uploadManualKey, approveAnswerKey,
       generateRubric, regenerateRubricFor, setCriteria, approveRubric,
       startUpload, pauseBatch,
-      resolveUnmatched, addStudent, lookupBarcode, discardUnmatched, reopenUnmatched,
+      resolveUnmatched, addStudent, addTeacher, lookupBarcode, discardUnmatched, reopenUnmatched,
       setQueuePaused, retryJobs,
       assign, setDeadline, remind,
       updateEval, acceptQuestion, acceptAllConfident, setGeneralFeedback, saveDraft, restoreSheet, verify, reopen,

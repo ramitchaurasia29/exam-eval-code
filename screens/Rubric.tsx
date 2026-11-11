@@ -23,7 +23,7 @@ export default function Rubric({ embed }: { embed?: Embed }) {
   const [choice, setChoice] = useState<"none" | "unverified" | "all">("none");
   const [expanded, setExpanded] = useState<string[]>([]);
 
-  if (!assessment) return <Page><EmptyState title="Assessment not found" body="This assessment may have been removed or the link may be out of date." action={<Button onClick={() => navigate("/assessments")}>View assessments</Button>} /></Page>;
+  if (!assessment) return <Page><EmptyState title="Exam not found" body="This exam may have been removed or the link may be out of date." action={<Button onClick={() => navigate("/assessments")}>View exams</Button>} /></Page>;
   const copies = state.sheets.filter((s) => s.assessmentId === assessment.id);
   const evaluatedCopies = copies.filter((s) => s.evaluation === "evaluated").length;
   const unverifiedCopies = copies.filter((s) => s.verification !== "verified").length;

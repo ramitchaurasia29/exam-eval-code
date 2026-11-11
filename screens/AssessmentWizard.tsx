@@ -31,7 +31,7 @@ export default function AssessmentWizard() {
   const base = id ? `/assessments/${id}/create` : "";
   const go = (s: Step) => navigate(s === "details" ? "/assessments/new" : `${base}/${s}`);
 
-  if (id && !assessment) return <Page><EmptyState title="Assessment not found" body="This assessment may have been removed or the link may be out of date." action={<Button onClick={() => navigate(listPath)}>View assessments</Button>} /></Page>;
+  if (id && !assessment) return <Page><EmptyState title="Exam not found" body="This exam may have been removed or the link may be out of date." action={<Button onClick={() => navigate(listPath)}>View exams</Button>} /></Page>;
 
   const hasSheets = !!assessment && state.sheets.some((s) => s.assessmentId === assessment.id);
   const done: boolean[] = [
@@ -54,9 +54,9 @@ export default function AssessmentWizard() {
 
   return <Page>
     <PageHeader
-      title={assessment ? assessment.name : "Create assessment"}
+      title={assessment ? assessment.name : "Create Exam"}
       meta={assessment ? <span>Class {assessment.grade} · {assessment.subject} · Sections {assessment.sections.join(", ")}</span> : undefined}
-      crumbs={[{ label: role === "admin" ? "Assessments" : "My assessments", to: listPath }, { label: "Create assessment" }]}
+      crumbs={[{ label: role === "admin" ? "Exam Evaluator" : "My exams", to: listPath }, { label: "Create Exam" }]}
     />
     <div className="mx-auto max-w-[920px]">
       <div className="mb-1 overflow-x-auto"><Stepper current={idx} steps={steps} /></div>
@@ -67,7 +67,7 @@ export default function AssessmentWizard() {
       {assessment && embed && step === "answer-key" && <AnswerKey embed={embed} />}
       {assessment && embed && step === "rubric" && <Rubric embed={embed} />}
       {assessment && step === "sheets" && <div className="mx-auto max-w-[720px]"><Panel title="Add students' answer sheets">
-        {hasSheets && <p className="mb-4 rounded-md bg-subtle px-3 py-2 text-[13px] text-ink-2">Copies are already uploaded for this assessment. You can add more, or go to the Students view to follow evaluation.</p>}
+        {hasSheets && <p className="mb-4 rounded-md bg-subtle px-3 py-2 text-[13px] text-ink-2">Copies are already uploaded for this exam. You can add more, or go to the Students view to follow evaluation.</p>}
         <BulkUpload assessmentId={assessment.id} onDone={() => navigate(`/assessments/${assessment.id}/students`)} />
       </Panel></div>}
 
