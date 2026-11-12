@@ -717,6 +717,47 @@ function useStoreImpl() {
       }));
       return { ok: true };
     };
+    const deleteStudent = (id: string): Result => {
+      const cur = ref.current.students;
+      const existing = cur.find((s) => s.id === id);
+      if (!existing) return { ok: false, error: "Student not found" };
+      set((s) => ({
+        ...s,
+        students: s.students.filter((st) => st.id !== id),
+        sheets: s.sheets.filter((sh) => sh.studentId !== id),
+        audit: audit(s, { category: "access", action: "Deleted student", target: `${existing.name} · Class ${existing.grade}${existing.section} roll no ${existing.roll}` }),
+      }));
+      return { ok: true };
+    };
+    const updateTeacher = (id: string, patch: Partial<User>): Result => {
+      const cur = ref.current.users;
+      const existing = cur.find((u) => u.id === id && u.role === "teacher");
+      if (!existing) return { ok: false, error: "Teacher not found" };
+      if (patch.email) {
+        const email = patch.email.trim().toLowerCase();
+        if (cur.some((u) => u.id !== id && u.email.toLowerCase() === email)) {
+          return { ok: false, error: "A user with this email already exists" };
+        }
+      }
+      set((s) => ({
+        ...s,
+        users: s.users.map((u) => (u.id === id ? { ...u, ...patch, name: patch.name ? patch.name.trim() : u.name } : u)),
+        audit: audit(s, { category: "access", action: "Updated teacher", target: patch.name ?? existing.name }),
+      }));
+      return { ok: true };
+    };
+    const deleteTeacher = (id: string): Result => {
+      const cur = ref.current.users;
+      const existing = cur.find((u) => u.id === id && u.role === "teacher");
+      if (!existing) return { ok: false, error: "Teacher not found" };
+      set((s) => ({
+        ...s,
+        users: s.users.filter((u) => u.id !== id),
+        sheets: s.sheets.map((sh) => (sh.teacherId === id ? { ...sh, teacherId: null } : sh)),
+        audit: audit(s, { category: "access", action: "Deleted teacher", target: existing.name, detail: existing.email }),
+      }));
+      return { ok: true };
+    };
     const assignClassTeacher = (grade: string, section: string, subject: string, teacherId: string): Result => {
       const teacher = ref.current.users.find((u) => u.id === teacherId);
       if (!teacher) return { ok: false, error: "Teacher not found" };
@@ -1043,7 +1084,7 @@ function useStoreImpl() {
       generateAnswerKey, uploadManualKey, approveAnswerKey,
       generateRubric, regenerateRubricFor, setCriteria, approveRubric,
       startUpload, pauseBatch,
-      resolveUnmatched, addStudent, updateStudent, addTeacher, assignClassTeacher, lookupBarcode, discardUnmatched, reopenUnmatched, toggleAbsent,
+      resolveUnmatched, addStudent, updateStudent, deleteStudent, addTeacher, updateTeacher, deleteTeacher, assignClassTeacher, lookupBarcode, discardUnmatched, reopenUnmatched, toggleAbsent,
       setQueuePaused, retryJobs,
       assign, setDeadline, remind,
       updateEval, acceptQuestion, acceptAllConfident, setGeneralFeedback, saveDraft, restoreSheet, verify, reopen,

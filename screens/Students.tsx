@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Upload, UserPlus, QrCode, Printer, Edit2, Users, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Upload, UserPlus, QrCode, Printer, Edit2, Trash2, Users, AlertCircle, CheckCircle2 } from "lucide-react";
 import QrPrintDialog from "../components/QrPrintDialog";
 import { QRCodeSVG } from "qrcode.react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -7,7 +7,7 @@ import { Lifecycle } from "../components/booklet";
 import { useStore } from "../data/store";
 import { sheetTotal } from "../data/selectors";
 import type { Student, Guardian } from "../data/types";
-import { Button, Drawer, Field, Input, EmptyState, ICON, Page, PageHeader, Panel, SearchInput, Select, StatusText, Switch, Table, Td, Th, Tr, Tag, cx } from "../components/ui";
+import { Button, Dialog, Drawer, Field, Input, EmptyState, ICON, Page, PageHeader, Panel, SearchInput, Select, StatusText, Switch, Table, Td, Th, Tr, Tag, cx } from "../components/ui";
 
 const PAGE_SIZE = 50;
 
@@ -28,6 +28,7 @@ export default function Students() {
   const [studentId, setStudentId] = useState("");
   const selected = state.students.find((s) => s.id === studentId);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [confirmDeleteStudent, setConfirmDeleteStudent] = useState<Student | null>(null);
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const [editForm, setEditForm] = useState<{
     name: string;
@@ -474,17 +475,31 @@ export default function Students() {
                     </Td>
                     <Td align="right">{count}</Td>
                     <Td align="right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        icon={<Edit2 size={13} strokeWidth={ICON} />}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEditStudent(student);
-                        }}
-                      >
-                        Edit
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={<Edit2 size={13} strokeWidth={ICON} />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditStudent(student);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger-ghost"
+                          icon={<Trash2 size={13} strokeWidth={ICON} />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDeleteStudent(student);
+                          }}
+                          title={`Delete ${student.name}`}
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </Td>
                   </Tr>
                 );
@@ -701,17 +716,30 @@ export default function Students() {
         footer={
           selected && (
             <div className="flex justify-between w-full">
-              <Button
-                variant="secondary"
-                icon={<Edit2 size={14} strokeWidth={ICON} />}
-                onClick={() => {
-                  const s = selected;
-                  setStudentId("");
-                  startEditStudent(s);
-                }}
-              >
-                Edit Student Info
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  icon={<Edit2 size={14} strokeWidth={ICON} />}
+                  onClick={() => {
+                    const s = selected;
+                    setStudentId("");
+                    startEditStudent(s);
+                  }}
+                >
+                  Edit Student Info
+                </Button>
+                <Button
+                  variant="danger-ghost"
+                  icon={<Trash2 size={14} strokeWidth={ICON} />}
+                  onClick={() => {
+                    const s = selected;
+                    setStudentId("");
+                    setConfirmDeleteStudent(s);
+                  }}
+                >
+                  Delete Student
+                </Button>
+              </div>
               <Button onClick={() => setStudentId("")}>Done</Button>
             </div>
           )
@@ -774,6 +802,46 @@ export default function Students() {
       </Drawer>
 
       {printIds && <QrPrintDialog students={state.students} initialIds={printIds} onClose={() => setPrintIds(null)} />}
+
+      {/* Delete Student Confirmation Dialog */}
+      {confirmDeleteStudent && (
+        <Dialog
+          open={!!confirmDeleteStudent}
+          onClose={() => setConfirmDeleteStudent(null)}
+          title="Delete Student"
+          size="sm"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setConfirmDeleteStudent(null)}>Cancel</Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  const name = confirmDeleteStudent.name;
+                  const res = actions.deleteStudent(confirmDeleteStudent.id);
+                  if (res.ok) {
+                    actions.toast(`Deleted student ${name}`, { tone: "success" });
+                  } else {
+                    actions.toast(res.error ?? "Failed to delete student", { tone: "danger" });
+                  }
+                  setConfirmDeleteStudent(null);
+                  if (studentId === confirmDeleteStudent.id) setStudentId("");
+                }}
+              >
+                Delete Student
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3 text-sm">
+            <p className="text-ink">
+              Are you sure you want to delete <strong>{confirmDeleteStudent.name}</strong> (Class {confirmDeleteStudent.grade}{confirmDeleteStudent.section}, Roll #{confirmDeleteStudent.roll})?
+            </p>
+            <p className="text-xs text-ink-3">
+              This will permanently remove the student record and any associated answer sheets from the system. This action cannot be undone.
+            </p>
+          </div>
+        </Dialog>
+      )}
     </Page>
   );
 }

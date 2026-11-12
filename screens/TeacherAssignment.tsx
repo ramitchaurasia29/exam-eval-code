@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from "react";
-import { Upload, UserPlus } from "lucide-react";
+import { Upload, UserPlus, Edit2, Trash2 } from "lucide-react";
 import { useStore } from "../data/store";
 import { now, pct, relTime } from "../data/selectors";
 import type { AnswerSheet, Assessment, User } from "../data/types";
-import { Avatar, Banner, Button, Checkbox, Drawer, EmptyState, Field, ICON, Input, Page, PageHeader, Panel, Progress, Radio, Select, Table, Tabs, Td, Th, Tr, cx } from "../components/ui";
+import { Avatar, Banner, Button, Checkbox, Dialog, Drawer, EmptyState, Field, ICON, Input, Page, PageHeader, Panel, Progress, Radio, Select, Table, Tabs, Td, Th, Tr, cx } from "../components/ui";
 
 const SUBJECTS = ["Science", "Mathematics", "English", "Social Science", "Hindi", "Computer Science"];
 const ALL_GRADES = ["6", "7", "8", "9", "10", "11", "12"];
@@ -50,6 +50,51 @@ export default function TeacherAssignment() {
     setAddedTeacher(res.teacher);
     actions.toast(`${res.teacher.name} added with grades Class ${tForm.grades.join(", ")}`, { tone: "success" });
   };
+
+  // Edit Teacher State
+  const [editingTeacher, setEditingTeacher] = useState<User | null>(null);
+  const [editTeacherForm, setEditTeacherForm] = useState({ name: "", email: "", title: "", subjects: [] as string[], grades: [] as string[] });
+  const [editTeacherErrors, setEditTeacherErrors] = useState<Record<string, string>>({});
+
+  const startEditTeacher = (t: User) => {
+    setEditingTeacher(t);
+    setEditTeacherForm({
+      name: t.name,
+      email: t.email,
+      title: t.title,
+      subjects: [...t.subjects],
+      grades: t.grades ? [...t.grades] : ["9", "10"],
+    });
+    setEditTeacherErrors({});
+  };
+
+  const submitEditTeacher = () => {
+    if (!editingTeacher) return;
+    const e: Record<string, string> = {};
+    if (!editTeacherForm.name.trim()) e.name = "Enter the teacher's full name";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editTeacherForm.email.trim())) e.email = "Enter a valid email address";
+    if (editTeacherForm.subjects.length === 0) e.subjects = "Select at least one subject";
+    if (editTeacherForm.grades.length === 0) e.grades = "Select at least one grade taught";
+    setEditTeacherErrors(e);
+    if (Object.keys(e).length) return;
+
+    const res = actions.updateTeacher(editingTeacher.id, {
+      name: editTeacherForm.name.trim(),
+      email: editTeacherForm.email.trim().toLowerCase(),
+      title: editTeacherForm.title.trim() || `${editTeacherForm.subjects.join(" & ")} teacher`,
+      subjects: editTeacherForm.subjects,
+      grades: editTeacherForm.grades,
+    });
+    if (!res.ok) {
+      setEditTeacherErrors({ email: res.error ?? "Could not update teacher" });
+      return;
+    }
+    actions.toast(`${editTeacherForm.name.trim()} updated successfully`, { tone: "success" });
+    setEditingTeacher(null);
+  };
+
+  // Delete Teacher Confirmation State
+  const [confirmDeleteTeacher, setConfirmDeleteTeacher] = useState<User | null>(null);
 
   // Assign Copies Drawer State
   const [open, setOpen] = useState(false);
@@ -155,6 +200,7 @@ export default function TeacherAssignment() {
                 <Th>Subjects</Th>
                 <Th>Grades Taught</Th>
                 <Th align="right">Active Exams</Th>
+                <Th align="right">Action</Th>
               </tr>
             </thead>
             <tbody>
@@ -183,6 +229,33 @@ export default function TeacherAssignment() {
                     )}
                   </Td>
                   <Td align="right">{state.assessments.filter((a) => !a.archived && a.teacherIds.includes(t.id)).length}</Td>
+                  <Td align="right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={<Edit2 size={13} strokeWidth={ICON} />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditTeacher(t);
+                        }}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger-ghost"
+                        icon={<Trash2 size={13} strokeWidth={ICON} />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmDeleteTeacher(t);
+                        }}
+                        title={`Delete ${t.name}`}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </Td>
                 </Tr>
               ))}
             </tbody>
@@ -355,6 +428,144 @@ export default function TeacherAssignment() {
         )}
       </Drawer>
 
+      {/* Edit Teacher Drawer */}
+      <Drawer
+        open={!!editingTeacher}
+        onClose={() => setEditingTeacher(null)}
+        title="Edit Teacher"
+        subtitle={editingTeacher?.name}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setEditingTeacher(null)}>Cancel</Button>
+            <Button variant="primary" onClick={submitEditTeacher}>Save Changes</Button>
+          </div>
+        }
+      >
+        {editingTeacher && (
+          <form className="space-y-4 p-5" onSubmit={(ev) => { ev.preventDefault(); submitEditTeacher(); }}>
+            <Field label="Full name" htmlFor="edit-t-name" error={editTeacherErrors.name}>
+              <Input
+                id="edit-t-name"
+                value={editTeacherForm.name}
+                invalid={!!editTeacherErrors.name}
+                onChange={(e) => {
+                  setEditTeacherForm((f) => ({ ...f, name: e.target.value }));
+                  setEditTeacherErrors((err) => ({ ...err, name: "" }));
+                }}
+              />
+            </Field>
+            <Field label="Email" htmlFor="edit-t-email" error={editTeacherErrors.email}>
+              <Input
+                id="edit-t-email"
+                type="email"
+                value={editTeacherForm.email}
+                invalid={!!editTeacherErrors.email}
+                onChange={(e) => {
+                  setEditTeacherForm((f) => ({ ...f, email: e.target.value }));
+                  setEditTeacherErrors((err) => ({ ...err, email: "" }));
+                }}
+              />
+            </Field>
+
+            <Field label="Grades / Classes Taught" error={editTeacherErrors.grades} helper="Select the grades/classes this teacher instructs">
+              <div className="flex flex-wrap gap-2 pt-1">
+                {ALL_GRADES.map((g) => {
+                  const on = editTeacherForm.grades.includes(g);
+                  return (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => {
+                        setEditTeacherForm((f) => ({
+                          ...f,
+                          grades: on ? f.grades.filter((x) => x !== g) : [...f.grades, g].sort((a, b) => Number(a) - Number(b)),
+                        }));
+                        setEditTeacherErrors((er) => ({ ...er, grades: "" }));
+                      }}
+                      className={cx(
+                        "rounded-md px-3 py-1.5 text-xs font-semibold border transition-colors",
+                        on ? "bg-primary text-white border-primary shadow-xs" : "bg-surface text-ink-2 border-border hover:bg-subtle"
+                      )}
+                    >
+                      Class {g}
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+
+            <Field label="Subjects" error={editTeacherErrors.subjects} helper="Subjects taught by this teacher">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-1">
+                {SUBJECTS.map((sub) => (
+                  <label key={sub} className="flex items-center gap-2 text-[13px] text-ink-2">
+                    <Checkbox
+                      checked={editTeacherForm.subjects.includes(sub)}
+                      onChange={(on) => {
+                        setEditTeacherForm((f) => ({
+                          ...f,
+                          subjects: on ? [...f.subjects, sub] : f.subjects.filter((x) => x !== sub),
+                        }));
+                        setEditTeacherErrors((er) => ({ ...er, subjects: "" }));
+                      }}
+                      label={sub}
+                    />
+                    {sub}
+                  </label>
+                ))}
+              </div>
+            </Field>
+
+            <Field label="Designation / Title" htmlFor="edit-t-title" optional>
+              <Input
+                id="edit-t-title"
+                value={editTeacherForm.title}
+                onChange={(e) => setEditTeacherForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder="e.g. Senior Science teacher"
+              />
+            </Field>
+          </form>
+        )}
+      </Drawer>
+
+      {/* Delete Teacher Confirmation Dialog */}
+      {confirmDeleteTeacher && (
+        <Dialog
+          open={!!confirmDeleteTeacher}
+          onClose={() => setConfirmDeleteTeacher(null)}
+          title="Delete Teacher"
+          size="sm"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setConfirmDeleteTeacher(null)}>Cancel</Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  const name = confirmDeleteTeacher.name;
+                  const res = actions.deleteTeacher(confirmDeleteTeacher.id);
+                  if (res.ok) {
+                    actions.toast(`Deleted teacher ${name}`, { tone: "success" });
+                  } else {
+                    actions.toast(res.error ?? "Failed to delete teacher", { tone: "danger" });
+                  }
+                  setConfirmDeleteTeacher(null);
+                }}
+              >
+                Delete Teacher
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3 text-sm">
+            <p className="text-ink">
+              Are you sure you want to delete <strong>{confirmDeleteTeacher.name}</strong> ({confirmDeleteTeacher.email})?
+            </p>
+            <p className="text-xs text-ink-3">
+              Any exam answer sheets currently assigned to this teacher will be unassigned so they can be reassigned to another faculty member.
+            </p>
+          </div>
+        </Dialog>
+      )}
+
       {/* Copy Assignment Drawer */}
       <Drawer
         open={open}
@@ -474,17 +685,30 @@ export default function TeacherAssignment() {
                 );
               })}
             </dl>
-            <Button
-              variant="secondary"
-              disabled={!state.sheets.some((s) => s.assessmentId === selectedTeacherRow.assessment.id && s.teacherId === selectedTeacherRow.teacher.id && s.verification !== "verified" && s.evaluation === "evaluated")}
-              onClick={() => {
-                const r = selectedTeacherRow;
-                setSelectedTeacherRow(null);
-                openDrawer({ assessmentId: r.assessment.id, sourceTeacher: r.teacher.id });
-              }}
-            >
-              Reassign pending copies
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="secondary"
+                disabled={!state.sheets.some((s) => s.assessmentId === selectedTeacherRow.assessment.id && s.teacherId === selectedTeacherRow.teacher.id && s.verification !== "verified" && s.evaluation === "evaluated")}
+                onClick={() => {
+                  const r = selectedTeacherRow;
+                  setSelectedTeacherRow(null);
+                  openDrawer({ assessmentId: r.assessment.id, sourceTeacher: r.teacher.id });
+                }}
+              >
+                Reassign pending copies
+              </Button>
+              <Button
+                variant="danger-ghost"
+                icon={<Trash2 size={14} strokeWidth={ICON} />}
+                onClick={() => {
+                  const t = selectedTeacherRow.teacher;
+                  setSelectedTeacherRow(null);
+                  setConfirmDeleteTeacher(t);
+                }}
+              >
+                Delete faculty member
+              </Button>
+            </div>
           </div>
         )}
       </Drawer>
