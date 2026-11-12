@@ -10,16 +10,34 @@ import type { ReactNode } from "react";
 import { BadgeCheck, FileWarning, ShieldAlert } from "lucide-react";
 import type { AnswerSheet, Assessment, Distribution, Student } from "../data/types";
 import { hash } from "../data/seed";
-import { latestDistribution, type Tone } from "../data/selectors";
+import { latestDistribution, shortCodeOf, type Tone } from "../data/selectors";
 import { QRCodeSVG } from "qrcode.react";
 import { cx } from "./ui";
 
 /* QR code ------------------------------------------------------------- */
-export function Barcode({ value, height = 28, className, showText = true }: { value: string; height?: number; className?: string; showText?: boolean }) {
+export function Barcode({
+  value,
+  height = 28,
+  className,
+  showText = true,
+  showShortCode = false,
+}: {
+  value: string;
+  height?: number;
+  className?: string;
+  showText?: boolean;
+  showShortCode?: boolean;
+}) {
+  const short = shortCodeOf(value);
   return (
     <span className={cx("inline-flex flex-col items-center", className)}>
       <QRCodeSVG value={value} size={height} level="M" marginSize={0} className="fill-ink" aria-label={`QR code ${value}`} role="img" />
       {showText && <span className="mt-0.5 font-mono text-[9px] tracking-wider text-ink-2">{value}</span>}
+      {showShortCode && (
+        <span className="mt-0.5 rounded border border-border bg-muted px-1 font-mono text-[9px] font-semibold text-ink" title="4-character manual matching code">
+          {short}
+        </span>
+      )}
     </span>
   );
 }
@@ -209,20 +227,22 @@ export function ScanPage({
         {/* Booklet header strip */}
         <div className="mb-[0.6em] flex items-start justify-between gap-2 border-b border-ink/15 pb-[0.4em] font-sans text-ink-2" style={{ fontSize: "0.62em" }}>
           <div className="min-w-0">
-            <p className="truncate font-semibold uppercase tracking-wide text-ink">Greenfield Public School · Answer booklet</p>
-            <p className="truncate">{assessment.name} · Class {assessment.grade}</p>
+            <p className="truncate font-semibold uppercase tracking-wide text-ink">Greenfield Public School · {student.city || "Bengaluru"}</p>
+            <p className="truncate">{assessment.name} · Class {assessment.grade} {student.section}</p>
           </div>
           <div className="text-right">
-            {page === 1 && !thumb ? <Barcode value={student.barcode} height={40} /> : <span className="font-mono">Page {page}</span>}
+            {page === 1 && !thumb ? <Barcode value={student.barcode} height={40} showShortCode /> : <span className="font-mono">Page {page}</span>}
           </div>
         </div>
 
         {page === 1 && (
-          <div className="mb-[0.5em] grid grid-cols-2 gap-x-[1em] font-sans text-ink-3" style={{ fontSize: "0.66em" }}>
-            <p>Name: <span className="font-hand text-pen" style={{ fontSize: "1.45em" }}>{student.name}</span></p>
-            <p>Roll no: <span className="font-hand text-pen" style={{ fontSize: "1.45em" }}>{student.roll}</span></p>
-            <p>Class: <span className="font-hand text-pen" style={{ fontSize: "1.45em" }}>{student.grade} {student.section}</span></p>
-            <p>Subject: <span className="font-hand text-pen" style={{ fontSize: "1.45em" }}>{assessment.subject}</span></p>
+          <div className="mb-[0.5em] grid grid-cols-2 gap-x-[1em] gap-y-[0.3em] font-sans text-ink-3" style={{ fontSize: "0.66em" }}>
+            <p>Student name: <span className="font-hand text-pen" style={{ fontSize: "1.4em" }}>{student.name}</span></p>
+            <p>Roll no: <span className="font-hand text-pen" style={{ fontSize: "1.4em" }}>{student.roll}</span></p>
+            <p>Grade / Class: <span className="font-hand text-pen" style={{ fontSize: "1.4em" }}>Class {student.grade}</span></p>
+            <p>Section: <span className="font-hand text-pen" style={{ fontSize: "1.4em" }}>{student.section}</span></p>
+            <p>City: <span className="font-hand text-pen" style={{ fontSize: "1.4em" }}>{student.city || "Bengaluru"}</span></p>
+            <p>Exam name: <span className="font-hand text-pen" style={{ fontSize: "1.4em" }}>{assessment.name}</span></p>
           </div>
         )}
 

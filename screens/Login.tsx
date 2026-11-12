@@ -12,16 +12,9 @@ export default function Login() {
   const [forgot, setForgot] = useState(false);
   const [resetHelp, setResetHelp] = useState(false);
   const demos = ["u-admin", "u-meera", "u-rahul"].map((id) => state.users.find((u) => u.id === id)).filter((u) => !!u);
-  // The principal view is read-only and isn't tied to a store user, so this demo account routes straight to it.
-  const principal = { name: "Anita Sharma", title: "Principal", email: "anita.sharma@greenfield.edu.in" };
   const submit = () => {
     setError("");
     if (!email.trim()) { setError("Enter your email"); return; }
-    if (email.trim().toLowerCase() === principal.email) {
-      if (!password) { setError("Enter your password"); return; }
-      navigate("/principal");
-      return;
-    }
     const user = state.users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
     if (!user) { setError("No staff account uses this email"); return; }
     if (!password) { setError("Enter your password"); return; }
@@ -44,7 +37,7 @@ export default function Login() {
         <div className="flex items-center justify-between"><button type="button" onClick={() => { setForgot((v) => !v); setResetHelp(!forgot); setError(""); }} className="text-[13px] font-medium text-primary hover:underline">{forgot ? "Back to sign in" : "Forgot password?"}</button></div>
         {!forgot && <Button type="submit" variant="primary" className="w-full">Sign in</Button>}
       </form>
-      <div className="mt-7 border-t border-border pt-5"><p className="text-xs font-semibold uppercase tracking-wide text-ink-3">Demo accounts</p><ul className="mt-2 divide-y divide-border rounded-md border border-border">{demos.map((u) => <li key={u!.id}><button className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-subtle" onClick={() => { setEmail(u!.email); setPassword("demo"); setError(""); }}><span className="text-[13px] font-medium text-ink">{u!.name}<span className="ml-2 font-normal text-ink-3">· {u!.title}</span></span><span className="text-xs text-primary">Use</span></button></li>)}<li><button className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-subtle" onClick={() => { setEmail(principal.email); setPassword("demo"); setError(""); }}><span className="text-[13px] font-medium text-ink">{principal.name}<span className="ml-2 font-normal text-ink-3">· {principal.title}</span></span><span className="text-xs text-primary">Use</span></button></li></ul><p className="mt-4 text-xs leading-relaxed text-ink-3">Students and guardians open results from the link in their SMS.</p></div>
+      <div className="mt-7 border-t border-border pt-5"><p className="text-xs font-semibold uppercase tracking-wide text-ink-3">Demo accounts</p><ul className="mt-2 divide-y divide-border rounded-md border border-border">{demos.map((u) => <li key={u!.id}><button className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-subtle" onClick={() => { setEmail(u!.email); setPassword("demo"); setError(""); }}><span className="text-[13px] font-medium text-ink">{u!.name}<span className="ml-2 font-normal text-ink-3">· {u!.title}</span></span><span className="text-xs text-primary">Use</span></button></li>)}</ul><p className="mt-4 text-xs leading-relaxed text-ink-3">Students and guardians open results from the link in their SMS.</p></div>
     </div></section>
   </main>;
 }

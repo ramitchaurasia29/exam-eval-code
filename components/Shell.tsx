@@ -12,11 +12,8 @@ import {
   ClipboardCheck,
   ClipboardList,
   FileCheck2,
-  FilePlus2,
   GraduationCap,
-  KeyRound,
   LayoutDashboard,
-  ListChecks,
   LogOut,
   Menu as MenuIcon,
   PanelLeftClose,
@@ -120,10 +117,7 @@ function useNav(): NavGroup[] {
       {
         title: "Exam Evaluator",
         items: [
-          { to: "/teacher/assessments", label: "My exams", icon: ClipboardList, match: ["/teacher/assessments", "/assessments/asm"] },
-          { to: "/assessments/new", label: "Create Exam", icon: FilePlus2, end: true },
-          { to: "/teacher/answer-keys", label: "Answer keys", icon: KeyRound },
-          { to: "/teacher/rubrics", label: "Rubric management", icon: ListChecks },
+          { to: "/teacher/assessments", label: "My exams", icon: ClipboardList, match: ["/teacher/assessments", "/assessments"] },
         ],
       },
       {
@@ -155,7 +149,7 @@ function Sidebar({ collapsed, onToggle, onNavigate, mobile }: { collapsed: boole
 
   const isActive = (it: NavItem) => {
     if (it.end) return pathname === it.to;
-    if (it.match) return it.match.some((m) => pathname.startsWith(m)) && !(it.to === "/teacher/assessments" && pathname === "/assessments/new");
+    if (it.match) return it.match.some((m) => pathname.startsWith(m));
     return pathname.startsWith(it.to);
   };
 

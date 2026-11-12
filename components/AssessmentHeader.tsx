@@ -38,15 +38,23 @@ export default function AssessmentHeader({ assessment: a, tab, actions, children
     <>
       <PageHeader
         crumbs={[{ label: role === "admin" ? "Exam Evaluator" : "My exams", to: role === "admin" ? "/assessments" : "/teacher/assessments" }, { label: `${a.name} · Class ${a.grade}` }]}
-        title={`${a.name} · Class ${a.grade}`}
+        title={
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-flex items-center rounded-md bg-primary-soft px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary border border-primary/20">
+                {a.type || "Exam"}
+              </span>
+              <span className="text-xs font-medium text-ink-3">Class {a.grade} · {a.subject}</span>
+            </div>
+            <span>{a.name}</span>
+          </div>
+        }
         meta={
           <>
             <StatusText tone={st.tone} label={st.label} />
-            <span>{a.subject}</span>
             <span>Sections {a.sections.join(", ")}</span>
-            <span>{a.type}</span>
             <span>Exam {fmtDate(a.examDate)}</span>
-            <span className="tabular-nums">{a.totalMarks} marks</span>
+            <span className="tabular-nums font-medium text-ink">{a.totalMarks} marks</span>
           </>
         }
         actions={actions}

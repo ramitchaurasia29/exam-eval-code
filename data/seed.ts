@@ -50,13 +50,13 @@ export function hash(s: string) {
 
 /* Users -------------------------------------------------------------- */
 export const USERS: User[] = [
-  { id: "u-admin", name: "Priya Raman", initials: "PR", role: "admin", email: "priya.raman@greenfield.edu.in", title: "Exam Cell Admin", subjects: [] },
-  { id: "u-meera", name: "Meera Iyer", initials: "MI", role: "teacher", email: "meera.iyer@greenfield.edu.in", title: "Science teacher", subjects: ["Science"] },
-  { id: "u-rahul", name: "Rahul Deshmukh", initials: "RD", role: "teacher", email: "rahul.deshmukh@greenfield.edu.in", title: "Science teacher", subjects: ["Science"] },
-  { id: "u-ananya", name: "Ananya Sharma", initials: "AS", role: "teacher", email: "ananya.sharma@greenfield.edu.in", title: "Mathematics teacher", subjects: ["Mathematics"] },
-  { id: "u-farhan", name: "Farhan Qureshi", initials: "FQ", role: "teacher", email: "farhan.qureshi@greenfield.edu.in", title: "English teacher", subjects: ["English"] },
-  { id: "u-kavita", name: "Kavita Nair", initials: "KN", role: "teacher", email: "kavita.nair@greenfield.edu.in", title: "Social Science teacher", subjects: ["Social Science"] },
-  { id: "u-suresh", name: "Suresh Pillai", initials: "SP", role: "teacher", email: "suresh.pillai@greenfield.edu.in", title: "Science teacher", subjects: ["Science", "Mathematics"] },
+  { id: "u-admin", name: "Priya Raman", initials: "PR", role: "admin", email: "priya.raman@greenfield.edu.in", title: "Exam Cell Admin", subjects: [], grades: ["8", "9", "10"] },
+  { id: "u-meera", name: "Meera Iyer", initials: "MI", role: "teacher", email: "meera.iyer@greenfield.edu.in", title: "Science teacher", subjects: ["Science"], grades: ["9", "10"] },
+  { id: "u-rahul", name: "Rahul Deshmukh", initials: "RD", role: "teacher", email: "rahul.deshmukh@greenfield.edu.in", title: "Science teacher", subjects: ["Science"], grades: ["10"] },
+  { id: "u-ananya", name: "Ananya Sharma", initials: "AS", role: "teacher", email: "ananya.sharma@greenfield.edu.in", title: "Mathematics teacher", subjects: ["Mathematics"], grades: ["9", "10"] },
+  { id: "u-farhan", name: "Farhan Qureshi", initials: "FQ", role: "teacher", email: "farhan.qureshi@greenfield.edu.in", title: "English teacher", subjects: ["English"], grades: ["10"] },
+  { id: "u-kavita", name: "Kavita Nair", initials: "KN", role: "teacher", email: "kavita.nair@greenfield.edu.in", title: "Social Science teacher", subjects: ["Social Science"], grades: ["8"] },
+  { id: "u-suresh", name: "Suresh Pillai", initials: "SP", role: "teacher", email: "suresh.pillai@greenfield.edu.in", title: "Science teacher", subjects: ["Science", "Mathematics"], grades: ["9", "10"] },
 ];
 
 /* Students ----------------------------------------------------------- */
@@ -87,6 +87,7 @@ function makeStudents(): Student[] {
         grade,
         section,
         roll,
+        city: "Bengaluru",
         barcode: `GPS${grade.padStart(2, "0")}${section}${String(adm).padStart(5, "0")}`,
         guardian: {
           name: `${gFirst} ${last}`,
@@ -549,6 +550,7 @@ export function seedNotifications(): Notification[] {
 
 export const SETTINGS: Settings = {
   schoolName: "Greenfield Public School",
+  city: "Bengaluru",
   academicYear: "2025–26",
   unverifiedRelease: "warn",
   verificationAuthority: "teacher",

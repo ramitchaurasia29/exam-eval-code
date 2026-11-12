@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Link, useLocation } from "react-router-dom";
 import { useStore } from "../data/store";
-import { pct, sheetTotal } from "../data/selectors";
+import { cohortOf, pct, sheetTotal } from "../data/selectors";
 import { Button, EmptyState, Page, PageHeader, Panel, SearchInput, Select, StatStrip, Table, Td, Th, Tr, Tabs } from "../components/ui";
 import type { AnswerSheet } from "../data/types";
 
@@ -35,7 +35,74 @@ export default function Reports() {
   const classGroups = new Map<string, { sum: number; count: number }>();
   sheets.filter((s) => s.evaluation === "evaluated").forEach((s) => { const st = state.students.find((x) => x.id === s.studentId); const a = selected.find((x) => x.id === s.assessmentId); if (!st || !a) return; const key = `Class ${st.grade}${st.section} · ${a.subject}`; const g = classGroups.get(key) ?? { sum: 0, count: 0 }; g.sum += sheetTotalPct(s); g.count++; classGroups.set(key, g); });
   const classData = [...classGroups].map(([label, v]) => ({ label, average: Math.round(v.sum / v.count) })).sort((a, b) => b.average - a.average || a.label.localeCompare(b.label));
-  const studentRows = sheets.filter((s) => s.evaluation === "evaluated").map((s) => { const st = state.students.find((x) => x.id === s.studentId); const a = selected.find((x) => x.id === s.assessmentId); const d = state.distributions.filter((x) => x.sheetId === s.id).sort((x, y) => y.sentAt.localeCompare(x.sentAt))[0]; return { Student: st?.name ?? "Unknown", Class: st ? `${st.grade}${st.section}` : "", "Roll no": st?.roll ?? 0, Assessment: a?.name ?? "", Marks: sheetTotal(s), Total: a?.totalMarks ?? 0, "Percent %": sheetTotalPct(s), Verification: s.verification, _id: s.id, _teacher: s.teacherId, _d: d?.verified ? "Verified" : "Provisional" }; }).filter((r) => `${r.Student} ${r.Class} ${r["Roll no"]} ${r.Assessment}`.toLowerCase().includes(query.toLowerCase()));
+
+  const sheetsWithRank = useMemo(() => {
+    const list: Array<{ sheet: AnswerSheet; rank: number; pctVal: number; marksVal: number }> = [];
+    selected.forEach((a) => {
+      const asmSheets = sheets
+        .filter((s) => s.assessmentId === a.id && s.evaluation === "evaluated")
+        .map((s) => ({ sheet: s, marksVal: sheetTotal(s), pctVal: sheetTotalPct(s) }))
+        .sort((x, y) => y.marksVal - x.marksVal);
+
+      let curRank = 1;
+      for (let i = 0; i < asmSheets.length; i++) {
+        if (i > 0 && asmSheets[i].marksVal < asmSheets[i - 1].marksVal) {
+          curRank = i + 1;
+        }
+        list.push({ ...asmSheets[i], rank: curRank });
+      }
+    });
+    return list;
+  }, [selected, sheets]);
+
+  const evaluatedStudentRows = sheetsWithRank.map((item) => {
+    const s = item.sheet;
+    const st = state.students.find((x) => x.id === s.studentId);
+    const a = selected.find((x) => x.id === s.assessmentId);
+    const d = state.distributions.filter((x) => x.sheetId === s.id).sort((x, y) => y.sentAt.localeCompare(x.sentAt))[0];
+    return {
+      Rank: item.rank,
+      Student: st?.name ?? "Unknown",
+      Class: st ? `${st.grade}${st.section}` : "",
+      "Roll no": st?.roll ?? 0,
+      Assessment: a?.name ?? "",
+      Marks: item.marksVal,
+      Total: a?.totalMarks ?? 0,
+      "Percent %": `${item.pctVal}%`,
+      Result: item.pctVal >= 33 ? "PASS" : "FAIL",
+      Verification: s.verification === "verified" ? "Verified" : "Pending",
+      _id: s.id,
+      _teacher: s.teacherId,
+      _d: d?.verified ? "Verified" : "Provisional",
+    };
+  });
+
+  const absentStudentRows = selected.flatMap((a) => {
+    const cohort = cohortOf(a, state.students);
+    const evaluatedIds = new Set(sheets.filter((s) => s.assessmentId === a.id).map((s) => s.studentId));
+    const absentSet = new Set(a.absentStudentIds ?? []);
+    return cohort
+      .filter((st) => !evaluatedIds.has(st.id) && absentSet.has(st.id))
+      .map((st) => ({
+        Rank: "—",
+        Student: st.name,
+        Class: `${st.grade}${st.section}`,
+        "Roll no": st.roll,
+        Assessment: a.name,
+        Marks: "AB",
+        Total: a.totalMarks,
+        "Percent %": "—",
+        Result: "ABSENT",
+        Verification: "Exempt",
+        _id: `absent-${st.id}`,
+        _teacher: null,
+        _d: "—",
+      }));
+  });
+
+  const studentRows = [...evaluatedStudentRows, ...absentStudentRows].filter((r) =>
+    `${r.Student} ${r.Class} ${r["Roll no"]} ${r.Assessment} ${r.Result}`.toLowerCase().includes(query.toLowerCase()),
+  );
   const teachers = state.users.filter((u) => u.role === "teacher" && selected.some((a) => a.teacherIds.includes(u.id)));
   const teacherRows = teachers.map((u) => { const assigned = sheets.filter((s) => s.teacherId === u.id); const verified = assigned.filter((s) => s.verification === "verified").length; return { Teacher: u.name, Assigned: assigned.length, Verified: verified, Pending: assigned.filter((s) => s.evaluation === "evaluated" && s.verification !== "verified").length, Reopened: assigned.filter((s) => s.verification === "reopened").length, "Completion %": assigned.length ? pct(verified, assigned.length) : 0 }; });
   const correctionRows: Row[] = [];
@@ -45,11 +112,11 @@ export default function Reports() {
   const exceptionRows = sheets.filter((s) => s.evaluation === "failed" || s.evaluation === "needs_review").map((s) => ({ Type: s.evaluation === "failed" ? "Failed copy" : "Needs review", Student: state.students.find((x) => x.id === s.studentId)?.name ?? "Unknown", Assessment: state.assessments.find((x) => x.id === s.assessmentId)?.name ?? "", Reason: s.error ?? "Review required", Link: `/review/${s.id}` }));
   state.unmatched.filter((u) => u.status === "open" && ids.has(u.assessmentId)).forEach((u) => exceptionRows.push({ Type: "Unmatched booklet", Student: u.coverName ?? "Unidentified", Assessment: state.assessments.find((x) => x.id === u.assessmentId)?.name ?? "", Reason: u.reason.replace(/_/g, " "), Link: "/unmatched" }));
   const smsRows = selected.map((a) => { const dists = state.distributions.filter((d) => d.assessmentId === a.id); const latest = dists.filter((d) => state.distributions.every((x) => x.sheetId !== d.sheetId || x.sentAt <= d.sentAt)); return { Assessment: a.name, Delivered: latest.filter((d) => d.status === "delivered").length, Failed: latest.filter((d) => d.status === "failed").length, Skipped: latest.filter((d) => d.status === "skipped").length, Opened: latest.filter((d) => !!d.openedAt).length }; });
-  const tabItems = [{ id: "results" as const, label: "Exam results" }, { id: "classes" as const, label: "Class & subject" }, { id: "students" as const, label: "Student marks" }, ...(!teacher ? [{ id: "teachers" as const, label: "Teacher progress" }] : []), { id: "corrections" as const, label: "AI corrections" }, { id: "exceptions" as const, label: "Processing exceptions" }, { id: "sms" as const, label: "SMS delivery" }];
+  const tabItems = [{ id: "results" as const, label: "Exam results" }, { id: "classes" as const, label: "Class & subject" }, { id: "students" as const, label: "Student marksheet" }, ...(!teacher ? [{ id: "teachers" as const, label: "Teacher progress" }] : []), { id: "corrections" as const, label: "AI corrections" }, { id: "exceptions" as const, label: "Processing exceptions" }, { id: "sms" as const, label: "SMS delivery" }];
   const activeRows: Row[] = useMemo((): Row[] => tab === "results" ? resultRows : tab === "students" ? studentRows.map(({ _id, _teacher, _d, ...r }) => r) : tab === "classes" ? classData.map((d) => ({ "Class & subject": d.label, "Average %": d.average })) : tab === "teachers" ? teacherRows : tab === "corrections" ? correctionRows : tab === "exceptions" ? exceptionRows : smsRows, [tab, scope, query, state]);
   const visible = activeRows;
   const columns = visible[0] ? Object.keys(visible[0]) : [];
-  return <Page wide><PageHeader title={teacher ? "Reports" : "Reports & analytics"} actions={<><Select aria-label="Exam scope" value={scope} onChange={(e) => setScope(e.target.value)} className="w-full sm:w-64"><option value="all">All exams</option>{assessments.map((a) => <option key={a.id} value={a.id}>{a.name} · Class {a.grade}</option>)}</Select><Button onClick={() => downloadCsv(visible, `report-${tab}.csv`)}>Export CSV</Button><Button onClick={() => window.print()}>Export PDF</Button></>} />
+  return <Page wide><PageHeader title={teacher ? "Reports" : "Reports & analytics"} actions={<><Select aria-label="Exam scope" value={scope} onChange={(e) => setScope(e.target.value)} className="w-full sm:w-64"><option value="all">All exams</option>{assessments.map((a) => <option key={a.id} value={a.id}>{a.name} · Class {a.grade}</option>)}</Select><Button onClick={() => downloadCsv(visible, `marksheet-${tab}.csv`)}>{tab === "students" ? "Export Marksheet (CSV)" : "Export CSV"}</Button><Button onClick={() => window.print()}>Export PDF</Button></>} />
     <Tabs items={tabItems} value={tab} onChange={(v) => setTab(v)} className="mb-4" />
     {tab === "students" && <SearchInput label="Search students" value={query} onChange={setQuery} placeholder="Search name, class, roll no or exam" className="mb-3 max-w-sm" />}
     {tab === "corrections" && <StatStrip className="mb-4" items={[{ label: "Question evaluations", value: correctionTotals.copies }, { label: "AI marks", value: correctionTotals.ai }, { label: "Final marks", value: correctionTotals.final }, { label: "Edited evaluations", value: correctionTotals.edited }]} />}

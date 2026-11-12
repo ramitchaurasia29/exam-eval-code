@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ScanLine } from "lucide-react";
 import { useStore } from "../data/store";
-import { UNMATCHED_REASON, cohortOf, fmtDateTime } from "../data/selectors";
+import { UNMATCHED_REASON, cohortOf, fmtDateTime, shortCodeOf } from "../data/selectors";
 import { Barcode } from "../components/booklet";
 import { Button, ButtonLink, Dialog, EmptyState, Field, ICON, Input, Panel, SearchInput, Segmented, Tabs, Textarea, cx } from "../components/ui";
 import { useScreenInit } from "../useScreenInit";
@@ -84,7 +84,28 @@ export default function UnmatchedQueue() {
         <p className="text-[13px] leading-relaxed text-ink-2">{UNMATCHED_REASON[item.reason].help}{item.reason === "not_in_cohort" && item.decoded && <span className="mt-1 block">{decodedStudent ? `This barcode belongs to ${decodedStudent.name}, Class ${decodedStudent.grade}${decodedStudent.section}.` : `The decoded barcode is outside Class ${assessment?.grade} and its sections.`} Map it to a student in this exam cohort or discard the booklet.</span>}</p>
         {suggested && item.reason !== "duplicate_barcode" && <div className="rounded-md border border-border bg-subtle p-3"><p className="text-xs text-ink-3">Cover reads {item.coverName ?? suggested.name}{item.coverRoll ? `, roll no ${item.coverRoll}` : ""}</p><p className="mt-1 text-[13px] font-medium text-ink">{suggested.name} · Class {suggested.grade}{suggested.section} · Roll no {suggested.roll}</p><p className="font-mono text-[11px] text-ink-3">{suggested.barcode}</p><Button className="mt-2" variant="primary" size="sm" onClick={() => mapTo(suggested.id)}>Map to {suggested.name}</Button></div>}
         {item.reason === "duplicate_barcode" && <div className="rounded-md border border-warning/30 bg-warning-soft p-3"><p className="text-[13px] font-medium text-warning">A copy with this barcode is already mapped.</p>{item.conflictSheetId && <Link className="mt-1 inline-block text-[13px] text-primary hover:underline" to={`/review/${item.conflictSheetId}`}>Open existing copy</Link>}<div className="mt-2"><Button variant="danger-ghost" onClick={() => { setDiscardOpen(true); setDiscardError(""); }}>Discard this booklet</Button></div></div>}
-        <div className="space-y-2 rounded-md border border-border p-3"><Field label="Enter or correct barcode" htmlFor="barcode" error={barcodeError}><div className="flex gap-2"><Input id="barcode" value={barcode} onChange={(e) => { setBarcode(e.target.value); setBarcodeError(""); setLookupStudentId(""); }} placeholder="Type barcode" /><Button onClick={findBarcode}>Look up</Button></div></Field>{lookupStudentId && (() => { const found = state.students.find((s) => s.id === lookupStudentId)!; return <div className="mt-2 rounded bg-success-soft p-2"><p className="text-[13px] font-medium text-success">{found.name} · Class {found.grade}{found.section} · Roll no {found.roll}</p><Button className="mt-2" variant="secondary" size="sm" onClick={() => mapTo(found.id)}>Map to {found.name}</Button></div>; })()}</div>
+        <div className="space-y-2 rounded-md border border-border p-3">
+          <Field label="Enter barcode or 4-character short code" htmlFor="barcode" error={barcodeError} helper="If QR is torn or unreadable, enter the 4-character short code printed beneath it (e.g. A312)">
+            <div className="flex gap-2">
+              <Input id="barcode" value={barcode} onChange={(e) => { setBarcode(e.target.value); setBarcodeError(""); setLookupStudentId(""); }} placeholder="e.g. GPS10A00312 or A312" />
+              <Button onClick={findBarcode}>Look up</Button>
+            </div>
+          </Field>
+          {lookupStudentId && (() => {
+            const found = state.students.find((s) => s.id === lookupStudentId)!;
+            return (
+              <div className="mt-2 rounded bg-success-soft p-2.5 border border-success/30">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[13px] font-semibold text-success">{found.name}</p>
+                    <p className="text-xs text-ink-2">Class {found.grade}{found.section} · Roll no {found.roll} · Code <span className="font-mono font-bold">{shortCodeOf(found.barcode)}</span></p>
+                  </div>
+                  <Button variant="primary" size="sm" onClick={() => mapTo(found.id)}>Map booklet</Button>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
         <div className="space-y-2 rounded-md border border-border p-3"><Field label="Find student"><SearchInput label="Find student" value={studentQuery} onChange={setStudentQuery} placeholder="Name, roll or admission number" /></Field>{studentQuery && <div className="max-h-36 overflow-y-auto rounded border border-border">{studentMatches.map((s) => <button key={s.id} onClick={() => setLookupStudentId(s.id)} className={cx("flex w-full items-center justify-between px-2.5 py-2 text-left text-xs hover:bg-subtle", lookupStudentId === s.id && "bg-primary-soft")}><span className="font-medium text-ink">{s.name}</span><span className="text-ink-3">{s.grade}{s.section} · {s.roll}</span></button>)}</div>}{lookupStudentId && !barcode && (() => { const found = state.students.find((s) => s.id === lookupStudentId)!; return <Button variant="secondary" size="sm" onClick={() => mapTo(found.id)}>Map to {found.name}</Button>; })()}</div>
         {item.reason !== "duplicate_barcode" && <Button variant="danger-ghost" onClick={() => { setDiscardOpen(true); setDiscardError(""); }}>Discard this booklet</Button>}
         {actionError && <p className="text-xs text-danger" role="alert">{actionError}</p>}

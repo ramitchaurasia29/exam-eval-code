@@ -45,7 +45,7 @@ import {
   seedSheets,
 } from "./seed";
 import { MATHS_9_QUESTIONS, SCIENCE_9_AI_KEY, SCIENCE_9_QUESTIONS, SST_8_QUESTIONS } from "./questions";
-import { cohortOf, now, nowIso, sheetTotal } from "./selectors";
+import { cohortOf, now, nowIso, sheetTotal, shortCodeOf } from "./selectors";
 import { useScreenInit } from "../useScreenInit";
 
 export interface State {
@@ -388,7 +388,7 @@ function useStoreImpl() {
     };
 
     /** Upload or replace the question paper; extraction runs and needs confirming again. */
-    const uploadPaper = (id: string, fileName: string, pages: number): Result => {
+    const uploadPaper = (id: string, fileName: string, pages: number, customQuestions?: Question[]): Result => {
       const a = ref.current.assessments.find((x) => x.id === id);
       if (!a) return { ok: false, error: "Exam not found" };
       if (ref.current.sheets.some((x) => x.assessmentId === id))
@@ -396,7 +396,7 @@ function useStoreImpl() {
       set((s) => {
         const version = (a.paper?.version ?? 0) + 1;
         const pv = { version, fileName, pages, uploadedAt: nowIso(), uploadedBy: s.userId };
-        let questions = a.questions;
+        let questions = customQuestions && customQuestions.length > 0 ? customQuestions : a.questions;
         if (questions.length === 0) {
           const tpl = a.subject === "Mathematics" ? MATHS_9_QUESTIONS : a.subject === "Science" ? SCIENCE_9_QUESTIONS : SST_8_QUESTIONS;
           questions = tpl.map((qq, i) => ({
@@ -683,26 +683,101 @@ function useStoreImpl() {
       }));
       return { ok: true };
     };
-    const addTeacher = (input: { name: string; email: string; subjects: string[]; title?: string }): Result & { teacher?: User } => {
+    const addTeacher = (input: { name: string; email: string; subjects: string[]; grades?: string[]; title?: string }): Result & { teacher?: User } => {
       const email = input.email.trim().toLowerCase();
       if (ref.current.users.some((u) => u.email.toLowerCase() === email)) return { ok: false, error: "A user with this email already exists" };
       const initials = input.name.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
-      const teacher: User = { id: uid("u"), name: input.name.trim(), initials, role: "teacher", email, title: input.title?.trim() || `${input.subjects.join(" & ")} teacher`, subjects: input.subjects };
-      set((s) => ({ ...s, users: [...s.users, teacher], audit: audit(s, { category: "access", action: "Added teacher", target: teacher.name, detail: `${teacher.email} · ${teacher.subjects.join(", ")}` }) }));
+      const grades = input.grades?.length ? input.grades : ["9", "10"];
+      const teacher: User = { id: uid("u"), name: input.name.trim(), initials, role: "teacher", email, title: input.title?.trim() || `${input.subjects.join(" & ")} teacher`, subjects: input.subjects, grades };
+      set((s) => ({ ...s, users: [...s.users, teacher], audit: audit(s, { category: "access", action: "Added teacher", target: teacher.name, detail: `${teacher.email} · ${teacher.subjects.join(", ")} · Class ${grades.join(", ")}` }) }));
       return { ok: true, teacher };
     };
-    const addStudent = (input: { name: string; grade: string; section: string; roll: number; guardianName: string; relation: Guardian["relation"]; phone: string | null }): Result & { student?: Student } => {
+    const addStudent = (input: { name: string; grade: string; section: string; roll: number; city?: string; guardianName: string; relation: Guardian["relation"]; phone: string | null }): Result & { student?: Student } => {
       const cur = ref.current.students;
       if (cur.some((x) => x.grade === input.grade && x.section === input.section && x.roll === input.roll)) return { ok: false, error: `Roll no ${input.roll} is already used in Class ${input.grade}${input.section}` };
       const seq = cur.reduce((m, x) => Math.max(m, Number(x.barcode.slice(-5)) || 0), 0) + 1;
-      const student: Student = { id: uid("st"), name: input.name, grade: input.grade, section: input.section, roll: input.roll, barcode: `GPS${input.grade.padStart(2, "0")}${input.section}${String(seq).padStart(5, "0")}`, guardian: { name: input.guardianName, relation: input.relation, phone: input.phone } };
+      const student: Student = { id: uid("st"), name: input.name, grade: input.grade, section: input.section, roll: input.roll, city: input.city || ref.current.settings.city || "Bengaluru", barcode: `GPS${input.grade.padStart(2, "0")}${input.section}${String(seq).padStart(5, "0")}`, guardian: { name: input.guardianName, relation: input.relation, phone: input.phone } };
       set((s) => ({ ...s, students: [...s.students, student], audit: audit(s, { category: "access", action: "Added student", target: `${student.name} · Class ${student.grade}${student.section} roll no ${student.roll}`, detail: `QR ${student.barcode}` }) }));
       return { ok: true, student };
     };
+    const updateStudent = (id: string, patch: Partial<Student>): Result => {
+      const cur = ref.current.students;
+      const existing = cur.find((s) => s.id === id);
+      if (!existing) return { ok: false, error: "Student not found" };
+      const nextGrade = patch.grade ?? existing.grade;
+      const nextSection = patch.section ?? existing.section;
+      const nextRoll = patch.roll ?? existing.roll;
+      if (cur.some((x) => x.id !== id && x.grade === nextGrade && x.section === nextSection && x.roll === nextRoll)) {
+        return { ok: false, error: `Roll no ${nextRoll} is already taken in Class ${nextGrade}${nextSection}` };
+      }
+      set((s) => ({
+        ...s,
+        students: s.students.map((st) => (st.id === id ? { ...st, ...patch, guardian: patch.guardian ? { ...st.guardian, ...patch.guardian } : st.guardian } : st)),
+        audit: audit(s, { category: "access", action: "Updated student", target: `${patch.name ?? existing.name} · Class ${nextGrade}${nextSection} roll no ${nextRoll}` }),
+      }));
+      return { ok: true };
+    };
+    const assignClassTeacher = (grade: string, section: string, subject: string, teacherId: string): Result => {
+      const teacher = ref.current.users.find((u) => u.id === teacherId);
+      if (!teacher) return { ok: false, error: "Teacher not found" };
+      const studentIds = new Set(ref.current.students.filter((st) => st.grade === grade && st.section === section).map((st) => st.id));
+      const assessments = ref.current.assessments.filter((a) => a.grade === grade && a.sections.includes(section) && (subject === "all" || a.subject === subject));
+      const asmIds = new Set(assessments.map((a) => a.id));
+      set((s) => {
+        const nextSheets = s.sheets.map((sh) => {
+          if (asmIds.has(sh.assessmentId) && studentIds.has(sh.studentId)) {
+            return { ...sh, teacherId };
+          }
+          return sh;
+        });
+        const nextAsms = s.assessments.map((a) => {
+          if (asmIds.has(a.id) && !a.teacherIds.includes(teacherId)) {
+            return { ...a, teacherIds: [...a.teacherIds, teacherId] };
+          }
+          return a;
+        });
+        return {
+          ...s,
+          sheets: nextSheets,
+          assessments: nextAsms,
+          audit: audit(s, {
+            category: "review",
+            action: "Assigned class teacher",
+            target: `Class ${grade}${section} · ${subject} to ${teacher.name}`,
+          }),
+        };
+      });
+      return { ok: true };
+    };
     const lookupBarcode = (barcode: string): Student | undefined => {
       const norm = barcode.replace(/\s+/g, "").toUpperCase();
-      return ref.current.students.find((x) => x.barcode === norm);
+      if (!norm) return undefined;
+      return ref.current.students.find(
+        (x) =>
+          x.barcode.toUpperCase() === norm ||
+          shortCodeOf(x.barcode).toUpperCase() === norm ||
+          x.id.toUpperCase() === norm ||
+          `${x.grade}${x.section}-${x.roll}`.toUpperCase() === norm,
+      );
     };
+    const toggleAbsent = (assessmentId: string, studentId: string) =>
+      set((s) => {
+        const a = s.assessments.find((x) => x.id === assessmentId);
+        if (!a) return s;
+        const current = a.absentStudentIds ?? [];
+        const isAbsent = current.includes(studentId);
+        const updated = isAbsent ? current.filter((id) => id !== studentId) : [...current, studentId];
+        const st = s.students.find((x) => x.id === studentId);
+        return {
+          ...s,
+          assessments: patchAsm(s, assessmentId, (asm) => ({ ...asm, absentStudentIds: updated })),
+          audit: audit(s, {
+            category: "assessment",
+            action: isAbsent ? "Marked student present" : "Marked student absent",
+            target: `${st?.name ?? studentId} · ${a.name}`,
+          }),
+        };
+      });
     const discardUnmatched = (itemId: string, note: string) =>
       set((s) => {
         const item = s.unmatched.find((u) => u.id === itemId)!;
@@ -968,7 +1043,7 @@ function useStoreImpl() {
       generateAnswerKey, uploadManualKey, approveAnswerKey,
       generateRubric, regenerateRubricFor, setCriteria, approveRubric,
       startUpload, pauseBatch,
-      resolveUnmatched, addStudent, addTeacher, lookupBarcode, discardUnmatched, reopenUnmatched,
+      resolveUnmatched, addStudent, updateStudent, addTeacher, assignClassTeacher, lookupBarcode, discardUnmatched, reopenUnmatched, toggleAbsent,
       setQueuePaused, retryJobs,
       assign, setDeadline, remind,
       updateEval, acceptQuestion, acceptAllConfident, setGeneralFeedback, saveDraft, restoreSheet, verify, reopen,

@@ -12,6 +12,7 @@ export interface User {
   email: string;
   title: string; // "Exam Cell Admin", "Science teacher"
   subjects: string[];
+  grades: string[];
 }
 
 export type QType =
@@ -101,6 +102,7 @@ export interface Assessment {
   ownerId: string; // teacher who created it
   teacherIds: string[];
   archived?: boolean;
+  absentStudentIds?: string[]; // IDs of students marked absent for this exam
   deadline?: string; // verification deadline ISO date
   paper: PaperVersion | null;
   paperHistory: PaperVersion[];
@@ -136,6 +138,7 @@ export interface Student {
   roll: number;
   barcode: string;
   guardian: Guardian;
+  city?: string;
 }
 
 export interface QuestionEval {
@@ -308,6 +311,7 @@ export interface Suggestion {
 
 export interface Settings {
   schoolName: string;
+  city: string;
   academicYear: string;
   unverifiedRelease: "prohibited" | "warn" ; // allowed with warning (admin only)
   verificationAuthority: "teacher" | "teacher_admin";

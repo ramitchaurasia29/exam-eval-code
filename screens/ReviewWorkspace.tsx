@@ -80,6 +80,7 @@ export default function ReviewWorkspace() {
   const [similarOpen, setSimilarOpen] = useState(!!init.similarOpen);
   const [justVerified, setJustVerified] = useState(false);
   const [showKey, setShowKey] = useState(false);
+  const [reviewMode, setReviewMode] = useState<"student" | "question">("student");
 
   // Snapshot for "discard changes"
   const snapshot = useRef<AnswerSheet | null>(null);
@@ -174,11 +175,18 @@ export default function ReviewWorkspace() {
         moveQ(1);
       } else if (e.key === "f" && canEdit && activeEval && sheet) {
         actions.updateEval(sheet.id, activeQid, { flagged: !activeEval.flagged });
+      } else if (e.key === "Enter" && reviewMode === "question" && canEdit && activeQid && sheet) {
+        e.preventDefault();
+        actions.acceptQuestion(sheet.id, activeQid);
+        if (idx < queue.length - 1) {
+          go(`/review/${queue[idx + 1].id}`);
+          actions.toast(`Accepted Q${assessment?.questions.find((q) => q.id === activeQid)?.number ?? ""} for ${student?.name ?? ""}`);
+        }
       }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [moveQ, canEdit, activeQid, activeEval, sheet, actions, save]);
+  }, [moveQ, canEdit, activeQid, activeEval, sheet, actions, save, reviewMode, idx, queue, go, assessment, student]);
 
   /* ---------------- Not found / not ready ---------------- */
   if (!sheet || !assessment || !student) {
@@ -199,6 +207,7 @@ export default function ReviewWorkspace() {
   const pendingSuggestions = state.suggestions.filter((g) => g.sourceSheetId === sheet.id && g.status === "pending");
   const verifier = state.users.find((u) => u.id === sheet.verifiedBy);
   const assignedTeacher = state.users.find((u) => u.id === sheet.teacherId);
+  const currentQuestion = assessment.questions.find((q) => q.id === activeQid);
 
   const doVerify = () => {
     const r = actions.verify(sheet.id);
@@ -237,6 +246,16 @@ export default function ReviewWorkspace() {
             <span className="min-w-14 text-center text-xs tabular-nums text-ink-3">{idx + 1} of {queue.length}</span>
             <IconButton label="Next copy" disabled={idx < 0 || idx >= queue.length - 1} onClick={() => go(`/review/${queue[idx + 1].id}`)}><ChevronRight size={18} strokeWidth={ICON} /></IconButton>
           </div>
+          <div className="hidden lg:flex items-center">
+            <Segmented
+              items={[
+                { id: "student", label: "By Student" },
+                { id: "question", label: "By Question" },
+              ]}
+              value={reviewMode}
+              onChange={(v) => setReviewMode(v as "student" | "question")}
+            />
+          </div>
           <div className="flex items-center gap-2">
             {saveState}
             {verified ? (
@@ -262,6 +281,68 @@ export default function ReviewWorkspace() {
           </div>
         </div>
       </header>
+
+      {/* Assembly-Line (Review by Question) Action Bar */}
+      {reviewMode === "question" && (
+        <div className="shrink-0 border-b border-primary/20 bg-primary-soft/50 px-3 py-2 sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="inline-flex items-center rounded bg-primary px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-on-primary">
+                Assembly Line
+              </span>
+              <div className="flex items-center gap-2">
+                <label htmlFor="asm-q-select" className="text-xs font-semibold text-ink">Question:</label>
+                <select
+                  id="asm-q-select"
+                  value={activeQid}
+                  onChange={(e) => setActiveQid(e.target.value)}
+                  className="rounded border border-border bg-surface px-2.5 py-1 text-xs font-semibold text-ink shadow-xs"
+                >
+                  {assessment.questions.map((q) => {
+                    const ev = sheet.questions.find((x) => x.qid === q.id);
+                    const flag = ev?.review && !ev.edited && !ev.accepted;
+                    return (
+                      <option key={q.id} value={q.id}>
+                        Q{q.number} ({q.marks}m){flag ? " · ⚠️ Review" : ""} - {q.text.slice(0, 35)}...
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              {currentQuestion && (
+                <span className="hidden xl:inline max-w-sm lg:max-w-md truncate text-xs text-ink-2">
+                  {currentQuestion.text}
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <span className="text-xs text-ink-3">
+                Student <strong className="text-ink">{idx + 1}</strong> of {queue.length}: <strong className="text-ink">{student.name}</strong>
+              </span>
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={!canEdit}
+                onClick={() => {
+                  if (canEdit && activeQid) {
+                    actions.acceptQuestion(sheet.id, activeQid);
+                    if (idx < queue.length - 1) {
+                      go(`/review/${queue[idx + 1].id}`);
+                      actions.toast(`Accepted Q${currentQuestion?.number ?? ""} for ${student.name}`);
+                    } else {
+                      actions.toast(`Completed Q${currentQuestion?.number ?? ""} across all students!`);
+                    }
+                  }
+                }}
+                title="Accept AI mark for this question and advance to next student (Enter)"
+              >
+                Accept &amp; Next Student →
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* State banners */}
       <div className="shrink-0 space-y-2 px-3 empty:hidden sm:px-5 [&>*:first-child]:mt-3">

@@ -1,14 +1,63 @@
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import type { ElementType } from "react";
 import type { Embed } from "../components/embed";
 import { useNavigate, useParams } from "react-router-dom";
-import { Check, ChevronLeft, ChevronRight, FileText, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, FileText, Pencil, Plus, Trash2, Upload, WandSparkles } from "lucide-react";
 import { useStore } from "../data/store";
 import type { Question, QType } from "../data/types";
 import { fmtDateTime, QTYPE_LABEL } from "../data/selectors";
+import { MATHS_9_QUESTIONS, SCIENCE_9_QUESTIONS, SST_8_QUESTIONS } from "../data/questions";
 import AssessmentHeader, { useAssessmentParam } from "../components/AssessmentHeader";
 import { Banner, Button, Dialog, DropZone, EmptyState, Field, ICON, IconButton, Input, Page, Panel, Select, Skeleton, Textarea, cx } from "../components/ui";
 import { useScreenInit } from "../useScreenInit";
+
+const SYLLABUS_TOPICS: Record<string, string[]> = {
+  Mathematics: [
+    "Rational Numbers & Real Number Systems",
+    "Linear Equations in One & Two Variables",
+    "Understanding Quadrilaterals & Geometry",
+    "Algebraic Expressions & Identities",
+    "Mensuration, Surface Areas & Volumes",
+    "Exponents, Powers & Factorisation",
+    "Probability and Data Handling",
+  ],
+  Science: [
+    "Nutrition in Plants & Animals",
+    "Acids, Bases, and Salts",
+    "Physical and Chemical Changes",
+    "Respiration & Cellular Metabolism",
+    "Motion, Speed and Time Calculations",
+    "Electric Current and Chemical Effects",
+    "Light: Reflection, Refraction & Lenses",
+  ],
+  English: [
+    "Reading Comprehension (Factual & Discursive Passages)",
+    "Formal Letter Writing & Analytical Paragraphs",
+    "Grammar: Tenses, Modals & Subject-Verb Concord",
+    "Literature: Prose Comprehension & Character Sketches",
+    "Poetry Analysis & Poetic Devices",
+  ],
+  "Social Science": [
+    "Resources and Sustainable Development",
+    "The Making of the National Movement (1870s–1947)",
+    "Judiciary, Law and Social Justice",
+    "Agriculture, Industries & Human Resources",
+    "Our Constitution & Democratic Rights",
+  ],
+  "Computer Science": [
+    "Computer Systems & Architecture Fundamentals",
+    "Computational Thinking & Python Programming",
+    "Data Representation & Boolean Logic",
+    "Cyber Safety, Ethics & Emerging Technologies",
+    "Database Management Systems & SQL Basics",
+  ],
+  Hindi: [
+    "अपठित गद्यांश एवं काव्यांश बोध",
+    "व्यावहारिक व्याकरण: पदबंध, समास, वाक्य-भेद",
+    "रचनात्मक लेखन: अनुच्छेद, पत्र, सूचना एवं विज्ञापन",
+    "पाठ्यपुस्तक: गद्य एवं पद्य खंड भावार्थ",
+  ],
+};
 
 export default function QuestionPaper({ embed }: { embed?: Embed }) {
   const params = useParams();
@@ -27,8 +76,31 @@ export default function QuestionPaper({ embed }: { embed?: Embed }) {
   const [replaceConfirm, setReplaceConfirm] = useState(false);
   const [replaceFile, setReplaceFile] = useState<{ name: string; size: number } | null>(null);
   const [replaceError, setReplaceError] = useState("");
+  const [sourceMode, setSourceMode] = useState<"generator" | "upload">("generator");
+  const [generating, setGenerating] = useState(false);
+  const [generatorStep, setGeneratorStep] = useState(1);
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  const [difficulty, setDifficulty] = useState<"balanced" | "foundational" | "advanced">("balanced");
   const sheets = state.sheets.filter((s) => s.assessmentId === id);
   const locked = sheets.length > 0;
+
+  const topicsList = useMemo(() => {
+    return (
+      (assessment ? SYLLABUS_TOPICS[assessment.subject] : null) || [
+        `Core Principles of ${assessment?.subject ?? "Subject"}`,
+        `Theoretical Framework & Definitions`,
+        `Application Problems & Real-World Case Studies`,
+        `Analytical Reasoning & Data Interpretation`,
+        `Advanced Synthesis & Problem Solving`,
+      ]
+    );
+  }, [assessment?.subject]);
+
+  useEffect(() => {
+    if (selectedTopics.length === 0 && topicsList.length > 0) {
+      setSelectedTopics(topicsList.slice(0, 4));
+    }
+  }, [topicsList]);
 
   if (!assessment) return <Page><EmptyState title="Exam not found" body="This exam may have been removed or the link may be out of date." action={<Button onClick={() => navigate("/assessments")}>View exams</Button>} /></Page>;
 
@@ -46,6 +118,50 @@ export default function QuestionPaper({ embed }: { embed?: Embed }) {
       if (!result.ok) setError(result.error);
       else actions.toast("Question paper uploaded");
     }, 1200);
+  };
+
+  const generateWithTool = () => {
+    setError("");
+    setGenerating(true);
+    setGeneratorStep(1);
+
+    window.setTimeout(() => setGeneratorStep(2), 450);
+    window.setTimeout(() => setGeneratorStep(3), 850);
+
+    window.setTimeout(() => {
+      const baseTpl =
+        assessment.subject === "Mathematics"
+          ? MATHS_9_QUESTIONS
+          : assessment.subject === "Science"
+          ? SCIENCE_9_QUESTIONS
+          : SST_8_QUESTIONS;
+
+      const targetMarks = assessment.totalMarks || 40;
+      let runningSum = 0;
+      const genQuestions: Question[] = [];
+
+      baseTpl.forEach((qItem, i) => {
+        if (runningSum + qItem.marks <= targetMarks || genQuestions.length < 4) {
+          runningSum += qItem.marks;
+          genQuestions.push({
+            ...qItem,
+            id: `${assessment.id}-gen-q${String(i + 1).padStart(2, "0")}`,
+            extractionIssue: undefined,
+          });
+        }
+      });
+
+      if (genQuestions.length > 0 && runningSum !== targetMarks) {
+        const last = genQuestions[genQuestions.length - 1];
+        const diff = targetMarks - runningSum;
+        last.marks = Math.max(1, last.marks + diff);
+      }
+
+      const fileName = `${assessment.subject.replace(/\s+/g, "_")}_AI_Generated_Paper.pdf`;
+      actions.uploadPaper(assessment.id, fileName, 2, genQuestions);
+      setGenerating(false);
+      actions.toast("Question paper generated with assessment generator tool!", { tone: "success" });
+    }, 1300);
   };
   const confirm = () => {
     const unresolved = questions.filter((q) => q.extractionIssue);
@@ -79,12 +195,280 @@ export default function QuestionPaper({ embed }: { embed?: Embed }) {
   return <Root>
     {!embed && <AssessmentHeader assessment={assessment} tab="paper" />}
     {!assessment.paper ? (
-      <Panel title="Upload question paper" className="max-w-3xl">
-        {extracting ? <div className="space-y-4" aria-live="polite"><p className="text-sm font-medium text-ink">Extracting questions…</p><Skeleton className="h-8 w-2/3" /><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div> : <>
-          {error && <Banner tone="danger" className="mb-4">{error}</Banner>}
-          <DropZone accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" title="Drop the question paper here" hint="PDF, JPG or PNG · multiple pages supported" sample={{ name: sampleName, sizeMb: 2.4 }} onFile={(name) => onPaper(name)} />
-        </>}
-      </Panel>
+      <div className="mx-auto max-w-4xl space-y-4">
+        {/* Source Mode Switcher: 2 Distinct Options */}
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          {/* Option 1: Assessment Generator Tool */}
+          <div
+            onClick={() => setSourceMode("generator")}
+            className={cx(
+              "cursor-pointer rounded-xl border p-4 transition-all shadow-xs",
+              sourceMode === "generator"
+                ? "border-primary bg-primary-soft/40 ring-2 ring-primary/40 shadow-sm"
+                : "border-border bg-surface hover:border-border-strong hover:bg-subtle"
+            )}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className={cx("flex h-9 w-9 items-center justify-center rounded-lg shadow-xs", sourceMode === "generator" ? "bg-primary text-on-primary" : "bg-muted text-ink-2")}>
+                  <WandSparkles size={18} strokeWidth={2} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-ink">Use assessment generator tool</h3>
+                  <span className="text-[11px] font-semibold text-primary">AI Blueprint &amp; Syllabus Aligned</span>
+                </div>
+              </div>
+              <input type="radio" name="paper-source" checked={sourceMode === "generator"} onChange={() => setSourceMode("generator")} className="mt-1 h-4 w-4 text-primary" />
+            </div>
+            <p className="mt-2.5 text-xs text-ink-3 leading-relaxed">
+              Auto-generate a balanced, board-aligned question paper with customizable chapter coverage, difficulty distribution, and cognitive levels.
+            </p>
+          </div>
+
+          {/* Option 2: Upload Teacher-Made Paper */}
+          <div
+            onClick={() => setSourceMode("upload")}
+            className={cx(
+              "cursor-pointer rounded-xl border p-4 transition-all shadow-xs",
+              sourceMode === "upload"
+                ? "border-primary bg-primary-soft/40 ring-2 ring-primary/40 shadow-sm"
+                : "border-border bg-surface hover:border-border-strong hover:bg-subtle"
+            )}
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className={cx("flex h-9 w-9 items-center justify-center rounded-lg shadow-xs", sourceMode === "upload" ? "bg-primary text-on-primary" : "bg-muted text-ink-2")}>
+                  <Upload size={18} strokeWidth={2} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-ink">Upload teacher-made question paper</h3>
+                  <span className="text-[11px] font-medium text-ink-3">Upload PDF, Scan or Image File</span>
+                </div>
+              </div>
+              <input type="radio" name="paper-source" checked={sourceMode === "upload"} onChange={() => setSourceMode("upload")} className="mt-1 h-4 w-4 text-primary" />
+            </div>
+            <p className="mt-2.5 text-xs text-ink-3 leading-relaxed">
+              Upload your own prepared physical or digital question paper. Questions, marks, diagrams, and sub-parts are automatically parsed by OCR.
+            </p>
+          </div>
+        </div>
+
+        {error && <Banner tone="danger">{error}</Banner>}
+
+        {/* Panel for Option 1: Assessment Generator Tool */}
+        {sourceMode === "generator" && (
+          <Panel
+            title={
+              <div className="flex items-center gap-2">
+                <WandSparkles size={16} className="text-primary" />
+                <span>Assessment Generator Tool</span>
+              </div>
+            }
+          >
+            {generating ? (
+              <div className="space-y-4 py-8 text-center" aria-live="polite">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary animate-pulse">
+                  <WandSparkles size={24} />
+                </div>
+                <p className="text-sm font-semibold text-ink">
+                  {generatorStep === 1 && `Analyzing ${assessment.subject} syllabus & chapter weightage…`}
+                  {generatorStep === 2 && `Calibrating question blueprint to ${assessment.totalMarks} marks…`}
+                  {generatorStep === 3 && `Synthesizing marking schemes & diagram questions…`}
+                </p>
+                <div className="mx-auto max-w-sm space-y-2">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-4/5 mx-auto" />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {/* Context Strip */}
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-subtle px-4 py-2.5">
+                  <div className="flex items-center gap-2 text-xs text-ink-2">
+                    <span className="font-semibold text-ink">{assessment.name}</span>
+                    <span>·</span>
+                    <span>Class {assessment.grade}</span>
+                    <span>·</span>
+                    <span>{assessment.subject}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded bg-primary-soft px-2 py-0.5 text-xs font-bold text-primary">
+                      Target: {assessment.totalMarks} Total Marks
+                    </span>
+                    {assessment.durationMin && (
+                      <span className="text-xs text-ink-3">{assessment.durationMin} mins</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 1. Syllabus & Chapters */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-ink-2">
+                      1. Select Syllabus Chapters to Cover:
+                    </label>
+                    <div className="flex items-center gap-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTopics([...topicsList])}
+                        className="text-primary hover:underline font-medium"
+                      >
+                        Select All
+                      </button>
+                      <span>·</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTopics([])}
+                        className="text-ink-3 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {topicsList.map((topic) => {
+                      const isChecked = selectedTopics.includes(topic);
+                      return (
+                        <label
+                          key={topic}
+                          className={cx(
+                            "flex items-center gap-2.5 rounded-lg border p-2.5 text-xs transition-colors cursor-pointer",
+                            isChecked
+                              ? "border-primary/40 bg-primary-soft/30 text-ink font-medium"
+                              : "border-border bg-surface text-ink-3 hover:bg-subtle"
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              setSelectedTopics((curr) =>
+                                isChecked ? curr.filter((t) => t !== topic) : [...curr, topic]
+                              );
+                            }}
+                            className="h-3.5 w-3.5 rounded text-primary"
+                          />
+                          <span className="truncate">{topic}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Difficulty Blueprint */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-ink-2">
+                    2. Cognitive &amp; Difficulty Blueprint (Bloom's Taxonomy):
+                  </label>
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                    <div
+                      onClick={() => setDifficulty("balanced")}
+                      className={cx(
+                        "cursor-pointer rounded-lg border p-3 text-xs transition-all",
+                        difficulty === "balanced"
+                          ? "border-primary bg-primary-soft/50 ring-1 ring-primary font-semibold text-ink"
+                          : "border-border bg-surface text-ink-3 hover:bg-subtle"
+                      )}
+                    >
+                      <p className="font-bold text-ink">Balanced (Recommended)</p>
+                      <p className="mt-1 text-[11px] text-ink-3">30% Easy · 50% Medium · 20% Hard</p>
+                    </div>
+
+                    <div
+                      onClick={() => setDifficulty("foundational")}
+                      className={cx(
+                        "cursor-pointer rounded-lg border p-3 text-xs transition-all",
+                        difficulty === "foundational"
+                          ? "border-primary bg-primary-soft/50 ring-1 ring-primary font-semibold text-ink"
+                          : "border-border bg-surface text-ink-3 hover:bg-subtle"
+                      )}
+                    >
+                      <p className="font-bold text-ink">Foundational Focus</p>
+                      <p className="mt-1 text-[11px] text-ink-3">50% Easy · 35% Medium · 15% Hard</p>
+                    </div>
+
+                    <div
+                      onClick={() => setDifficulty("advanced")}
+                      className={cx(
+                        "cursor-pointer rounded-lg border p-3 text-xs transition-all",
+                        difficulty === "advanced"
+                          ? "border-primary bg-primary-soft/50 ring-1 ring-primary font-semibold text-ink"
+                          : "border-border bg-surface text-ink-3 hover:bg-subtle"
+                      )}
+                    >
+                      <p className="font-bold text-ink">Advanced / HOTS</p>
+                      <p className="mt-1 text-[11px] text-ink-3">20% Easy · 40% Medium · 40% Hard</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Section Blueprint */}
+                <div className="rounded-lg border border-border bg-subtle p-3.5 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-ink">
+                    <span>3. Auto-Calibrated Section Blueprint:</span>
+                    <span className="text-primary">{assessment.totalMarks} Marks Total</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                    <div className="rounded bg-surface p-2 border border-border text-center">
+                      <p className="font-bold text-ink">Section A (MCQs)</p>
+                      <p className="text-[11px] text-ink-3 mt-0.5">Objective · 1m each</p>
+                    </div>
+                    <div className="rounded bg-surface p-2 border border-border text-center">
+                      <p className="font-bold text-ink">Section B (Short)</p>
+                      <p className="text-[11px] text-ink-3 mt-0.5">Short Answer · 2–3m each</p>
+                    </div>
+                    <div className="rounded bg-surface p-2 border border-border text-center">
+                      <p className="font-bold text-ink">Section C (Long)</p>
+                      <p className="text-[11px] text-ink-3 mt-0.5">Long Answer · 4–5m each</p>
+                    </div>
+                    <div className="rounded bg-surface p-2 border border-border text-center">
+                      <p className="font-bold text-ink">Section D (Applied)</p>
+                      <p className="text-[11px] text-ink-3 mt-0.5">Diagram &amp; Case Study</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Generate Button */}
+                <div className="flex items-center justify-between pt-2 border-t border-border">
+                  <p className="text-xs text-ink-3">
+                    Questions can be reviewed, edited, or reordered before final confirmation.
+                  </p>
+                  <Button
+                    variant="primary"
+                    icon={<WandSparkles size={16} strokeWidth={ICON} />}
+                    onClick={generateWithTool}
+                    disabled={selectedTopics.length === 0}
+                  >
+                    Generate Question Paper
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Panel>
+        )}
+
+        {/* Panel for Option 2: Upload Teacher-Made Paper */}
+        {sourceMode === "upload" && (
+          <Panel title="Upload teacher-made question paper">
+            {extracting ? (
+              <div className="space-y-4" aria-live="polite">
+                <p className="text-sm font-medium text-ink">Extracting questions from teacher paper…</p>
+                <Skeleton className="h-8 w-2/3" />
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+              </div>
+            ) : (
+              <DropZone
+                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                title="Drop the question paper here"
+                hint="PDF, JPG or PNG · multiple pages supported"
+                sample={{ name: sampleName, sizeMb: 2.4 }}
+                onFile={(name) => onPaper(name)}
+              />
+            )}
+          </Panel>
+        )}
+      </div>
     ) : <>
       {assessment.questionsConfirmed && !editing && <Banner tone="success" className="mb-4" title="Question structure confirmed">The extracted structure is read-only. Stable question IDs are retained for answer keys and marking.</Banner>}
       {locked && <Banner tone="info" className="mb-4" title="Question structure and paper versions are locked">Copies have already been uploaded for this exam. Editing or replacing the question paper is unavailable.</Banner>}

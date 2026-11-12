@@ -10,7 +10,7 @@ import type {
   UnmatchedReason,
   VerificationStatus,
 } from "./types";
-import { NOW } from "./seed";
+import { NOW, hash } from "./seed";
 
 /* Clock: seeded "now" that keeps ticking in the session -------------- */
 const BOOT = Date.now();
@@ -60,6 +60,26 @@ export function relTime(isoStr?: string) {
 export const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}`;
 export const num = (n: number) => n.toLocaleString("en-IN");
 export const pct = (a: number, b: number) => (b === 0 ? 0 : Math.round((a / b) * 100));
+
+/** Deterministic 4-character human-readable short code printed under QR codes for quick manual matching */
+export function shortCodeOf(barcode?: string | null): string {
+  if (!barcode) return "----";
+  const m = barcode.match(/([A-Z])0*(\d{1,4})$/i);
+  if (m) {
+    const sec = m[1].toUpperCase();
+    const n = m[2].slice(-3).padStart(3, "0");
+    return `${sec}${n}`.slice(0, 4);
+  }
+  const h = hash(barcode);
+  const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+  let res = "";
+  let val = h;
+  for (let i = 0; i < 4; i++) {
+    res += chars[val % chars.length];
+    val = Math.floor(val / chars.length);
+  }
+  return res;
+}
 
 /* Labels --------------------------------------------------------------- */
 export type Tone = "neutral" | "info" | "success" | "warning" | "danger" | "muted";
@@ -246,3 +266,13 @@ export const cohortOf = (a: Assessment, students: Student[]) =>
 
 export const classLabel = (grade: string, section?: string) => `Class ${grade}${section ?? ""}`;
 export const assessmentLabel = (a: Assessment) => `${a.name} · Class ${a.grade}`;
+
+export function examTypeLabel(a: { name: string; subject: string; type?: string }): string {
+  if (a.subject && a.name.toLowerCase().startsWith(a.subject.toLowerCase())) {
+    const stripped = a.name.slice(a.subject.length).trim();
+    if (stripped) return stripped;
+  }
+  const utMatch = a.name.match(/Unit Test \d+/i);
+  if (utMatch) return utMatch[0];
+  return a.type || a.name;
+}
