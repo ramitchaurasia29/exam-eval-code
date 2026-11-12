@@ -4,7 +4,7 @@ import { Printer, FileText, Grid } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import type { Student } from "../data/types";
 import { useStore } from "../data/store";
-import { shortCodeOf } from "../data/selectors";
+import { examTypeLabel, shortCodeOf } from "../data/selectors";
 import { Button, Checkbox, ICON, SearchInput, Select, Switch, cx } from "./ui";
 
 /* A4 at 96dpi so the on-screen preview and the printed page are the same markup. */
@@ -151,16 +151,52 @@ export default function QrPrintDialog({ students, initialIds, onClose }: { stude
   const { state } = useStore();
   const [selected, setSelected] = useState<Set<string>>(() => new Set(initialIds));
   const [query, setQuery] = useState("");
+
+  // Four Filters: 1. Exam Type, 2. Subject, 3. Class, 4. Section
+  const [examType, setExamType] = useState("all");
+  const [subject, setSubject] = useState("all");
   const [grade, setGrade] = useState("all");
   const [section, setSection] = useState("all");
+
   const [mode, setMode] = useState<PrintMode>("single");
   const [cols, setCols] = useState<Cols>(3);
-  
-  const defaultExam = state.assessments.find((a) => !a.archived)?.name ?? "Midterm Examination 2025–26";
-  const [selectedExamId, setSelectedExamId] = useState<string>(state.assessments[0]?.id ?? "custom");
-  const [customExamName, setCustomExamName] = useState(defaultExam);
 
-  const activeExamName = selectedExamId === "custom" ? customExamName : (state.assessments.find((a) => a.id === selectedExamId)?.name ?? customExamName);
+  // Available unique Exam Types and Subjects from state.assessments
+  const availableExamTypes = useMemo(() => {
+    const types = new Set<string>();
+    state.assessments.forEach((a) => {
+      types.add(examTypeLabel(a));
+    });
+    return Array.from(types).sort();
+  }, [state.assessments]);
+
+  const availableSubjects = useMemo(() => {
+    const subs = new Set<string>();
+    state.assessments.forEach((a) => {
+      if (a.subject) subs.add(a.subject);
+    });
+    return Array.from(subs).sort();
+  }, [state.assessments]);
+
+  // Dynamic Exam Name for Cover and Stickers based on selected filters
+  const activeExamName = useMemo(() => {
+    // 1. Direct match with assessment
+    const matched = state.assessments.find((a) => {
+      if (examType !== "all" && examTypeLabel(a) !== examType && a.type !== examType) return false;
+      if (subject !== "all" && a.subject !== subject) return false;
+      if (grade !== "all" && a.grade !== grade) return false;
+      return true;
+    });
+    if (matched) return matched.name;
+
+    // 2. Synthesized title if filters are chosen
+    if (subject !== "all" && examType !== "all") return `${subject} ${examType}`;
+    if (examType !== "all") return `${examType} Examination`;
+    if (subject !== "all") return `${subject} Examination`;
+
+    return state.assessments[0]?.name || "Midterm Examination 2025–26";
+  }, [state.assessments, examType, subject, grade]);
+
   const schoolName = state.settings.schoolName || "Greenfield Public School";
   const city = state.settings.city || "Bengaluru";
 
@@ -192,15 +228,32 @@ export default function QrPrintDialog({ students, initialIds, onClose }: { stude
   const grades = Array.from(new Set(students.map((s) => s.grade))).sort((a, b) => Number(a) - Number(b));
   const sections = Array.from(new Set(students.filter((s) => grade === "all" || s.grade === grade).map((s) => s.section))).sort();
   
+  // Filter students based on: Query, Grade, Section, and Exam/Subject scope
   const list = useMemo(() => {
     const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "");
     const t = norm(query.trim());
-    return students.filter((s) => 
-      (grade === "all" || s.grade === grade) && 
-      (section === "all" || s.section === section) && 
-      (!t || [s.name, String(s.roll), s.barcode, s.city || ""].some((v) => norm(v).includes(t)))
-    );
-  }, [students, query, grade, section]);
+
+    // Determine target grades if examType or subject is explicitly chosen
+    const targetGrades = (examType !== "all" || subject !== "all")
+      ? new Set(
+          state.assessments
+            .filter((a) => {
+              if (examType !== "all" && examTypeLabel(a) !== examType && a.type !== examType) return false;
+              if (subject !== "all" && a.subject !== subject) return false;
+              return true;
+            })
+            .map((a) => a.grade)
+        )
+      : null;
+
+    return students.filter((s) => {
+      if (grade !== "all" && s.grade !== grade) return false;
+      if (grade === "all" && targetGrades && !targetGrades.has(s.grade)) return false;
+      if (section !== "all" && s.section !== section) return false;
+      if (t && ![s.name, String(s.roll), s.barcode, s.city || ""].some((v) => norm(v).includes(t))) return false;
+      return true;
+    });
+  }, [students, query, grade, section, examType, subject, state.assessments]);
 
   const chosen = useMemo(() => students.filter((s) => selected.has(s.id)), [students, selected]);
 
@@ -232,20 +285,61 @@ export default function QrPrintDialog({ students, initialIds, onClose }: { stude
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[380px_1fr]">
-        {/* Left: Student Selector */}
+        {/* Left: Student Selector with 4 Filters (Exam Type, Subject, Class, Section) */}
         <section className="flex min-h-0 flex-col border-b border-border lg:border-b-0 lg:border-r bg-surface">
           <div className="space-y-2.5 border-b border-border p-3">
             <SearchInput label="Search students" value={query} onChange={setQuery} placeholder="Name, roll no, city or QR ID" className="w-full" />
+            
+            {/* Filter Row 1: Exam Type & Subject */}
             <div className="grid grid-cols-2 gap-2">
-              <Select aria-label="Filter by class" value={grade} onChange={(e) => { setGrade(e.target.value); setSection("all"); }}>
+              <Select
+                aria-label="Filter by exam type"
+                value={examType}
+                onChange={(e) => setExamType(e.target.value)}
+                className="text-xs"
+              >
+                <option value="all">All Exam Types</option>
+                {availableExamTypes.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </Select>
+
+              <Select
+                aria-label="Filter by subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                className="text-xs"
+              >
+                <option value="all">All Subjects</option>
+                {availableSubjects.map((sub) => (
+                  <option key={sub} value={sub}>{sub}</option>
+                ))}
+              </Select>
+            </div>
+
+            {/* Filter Row 2: Class & Section */}
+            <div className="grid grid-cols-2 gap-2">
+              <Select
+                aria-label="Filter by class"
+                value={grade}
+                onChange={(e) => { setGrade(e.target.value); setSection("all"); }}
+                className="text-xs"
+              >
                 <option value="all">All classes</option>
                 {grades.map((g) => <option key={g} value={g}>Class {g}</option>)}
               </Select>
-              <Select aria-label="Filter by section" value={section} onChange={(e) => setSection(e.target.value)}>
+
+              <Select
+                aria-label="Filter by section"
+                value={section}
+                onChange={(e) => setSection(e.target.value)}
+                className="text-xs"
+              >
                 <option value="all">All sections</option>
                 {sections.map((s) => <option key={s} value={s}>Section {s}</option>)}
               </Select>
             </div>
+
             <div className="flex items-center justify-between pt-1 text-[13px]">
               <Checkbox checked={allVisible} indeterminate={someVisible && !allVisible} onChange={toggleAll} label={`Select all ${list.length} shown`} />
               <span className="text-ink-3">
@@ -291,33 +385,6 @@ export default function QrPrintDialog({ students, initialIds, onClose }: { stude
                 Sticker Sheet (Multi per page)
               </button>
             </div>
-
-            {/* Exam selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-ink-3">Exam:</span>
-              <Select 
-                aria-label="Exam name for QR print" 
-                value={selectedExamId} 
-                onChange={(e) => setSelectedExamId(e.target.value)}
-                className="w-48 text-xs"
-              >
-                {state.assessments.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name} · Class {a.grade}</option>
-                ))}
-                <option value="custom">Custom Exam Name...</option>
-              </Select>
-            </div>
-
-            {selectedExamId === "custom" && (
-              <input 
-                aria-label="Custom exam name"
-                type="text" 
-                value={customExamName} 
-                onChange={(e) => setCustomExamName(e.target.value)} 
-                className="h-8 rounded-md border border-border px-2 text-xs" 
-                placeholder="Enter exam name"
-              />
-            )}
 
             {mode === "stickers" && (
               <label className="flex items-center gap-1.5 text-xs text-ink-2">
