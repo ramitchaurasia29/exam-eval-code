@@ -1,19 +1,19 @@
 import { useMemo, useRef, useState } from "react";
-import { Upload, UserPlus, Users, Edit3, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, UserPlus } from "lucide-react";
 import { useStore } from "../data/store";
 import { now, pct, relTime } from "../data/selectors";
 import type { AnswerSheet, Assessment, User } from "../data/types";
-import { Avatar, Banner, Button, Checkbox, Drawer, EmptyState, Field, ICON, Input, Page, PageHeader, Panel, Progress, Radio, Select, Table, Tabs, Td, Th, Tr, Tag, cx } from "../components/ui";
+import { Avatar, Banner, Button, Checkbox, Drawer, EmptyState, Field, ICON, Input, Page, PageHeader, Panel, Progress, Radio, Select, Table, Tabs, Td, Th, Tr, cx } from "../components/ui";
 
 const SUBJECTS = ["Science", "Mathematics", "English", "Social Science", "Hindi", "Computer Science"];
 const ALL_GRADES = ["6", "7", "8", "9", "10", "11", "12"];
 type Scope = "unassigned" | "section" | "reassign";
-type ViewTab = "classes" | "progress" | "directory";
+type ViewTab = "directory" | "progress";
 
 export default function TeacherAssignment() {
   const { state, actions } = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState<ViewTab>("classes");
+  const [activeTab, setActiveTab] = useState<ViewTab>("directory");
 
   // Add Teacher State (with Grades)
   const [addOpen, setAddOpen] = useState(false);
@@ -50,10 +50,6 @@ export default function TeacherAssignment() {
     setAddedTeacher(res.teacher);
     actions.toast(`${res.teacher.name} added with grades Class ${tForm.grades.join(", ")}`, { tone: "success" });
   };
-
-  // Class-wise Teacher Assignment Modal / Drawer
-  const [editClassModal, setEditClassModal] = useState<{ grade: string; section: string; subject: string; currentTeacherId: string | null } | null>(null);
-  const [newClassTeacherId, setNewClassTeacherId] = useState("");
 
   // Assign Copies Drawer State
   const [open, setOpen] = useState(false);
@@ -93,66 +89,6 @@ export default function TeacherAssignment() {
     setOpen(true);
   };
 
-  // Class-wise Assignments Matrix
-  const classAssignmentRows = useMemo(() => {
-    // Unique classes from students
-    const cohorts = Array.from(
-      new Set(state.students.map((s) => `${s.grade}-${s.section}`))
-    ).map((key) => {
-      const [g, sec] = key.split("-");
-      return { grade: g, section: sec };
-    }).sort((a, b) => Number(a.grade) - Number(b.grade) || a.section.localeCompare(b.section));
-
-    const rows: {
-      grade: string;
-      section: string;
-      subject: string;
-      assessment?: Assessment;
-      teacher?: User;
-      studentCount: number;
-      evaluatedCount: number;
-      verifiedCount: number;
-    }[] = [];
-
-    cohorts.forEach(({ grade, section }) => {
-      const studentIds = new Set(state.students.filter((s) => s.grade === grade && s.section === section).map((s) => s.id));
-      const relevantAsms = state.assessments.filter((a) => a.grade === grade && a.sections.includes(section));
-
-      if (relevantAsms.length === 0) {
-        // Class exists without active exam
-        rows.push({
-          grade,
-          section,
-          subject: "Science",
-          studentCount: studentIds.size,
-          evaluatedCount: 0,
-          verifiedCount: 0,
-        });
-      } else {
-        relevantAsms.forEach((asm) => {
-          const asmSheets = state.sheets.filter((sh) => sh.assessmentId === asm.id && studentIds.has(sh.studentId));
-          const teacherId = asmSheets.find((sh) => sh.teacherId)?.teacherId || asm.teacherIds[0];
-          const teacher = state.users.find((u) => u.id === teacherId);
-          const evaluatedCount = asmSheets.filter((sh) => sh.evaluation === "evaluated").length;
-          const verifiedCount = asmSheets.filter((sh) => sh.verification === "verified").length;
-
-          rows.push({
-            grade,
-            section,
-            subject: asm.subject,
-            assessment: asm,
-            teacher,
-            studentCount: studentIds.size,
-            evaluatedCount,
-            verifiedCount,
-          });
-        });
-      }
-    });
-
-    return rows;
-  }, [state.students, state.assessments, state.sheets, state.users]);
-
   // Teacher Progress rows
   const teacherRows = useMemo(() => state.users.filter((u) => u.role === "teacher").flatMap((teacher) => state.assessments.filter((a) => !a.archived && a.teacherIds.includes(teacher.id)).map((assessment) => {
     const all = state.sheets.filter((s) => s.assessmentId === assessment.id && s.teacherId === teacher.id);
@@ -169,16 +105,6 @@ export default function TeacherAssignment() {
   })).filter((r) => r.assigned > 0 || r.assessment.teacherIds.includes(r.teacher.id)), [state.users, state.assessments, state.sheets, state.audit]);
 
   const unassigned = state.sheets.filter((s) => s.evaluation === "evaluated" && !s.teacherId);
-
-  // Submit Class Teacher assignment
-  const handleAssignClassTeacher = () => {
-    if (!editClassModal || !newClassTeacherId) return;
-    const { grade, section, subject } = editClassModal;
-    actions.assignClassTeacher(grade, section, subject, newClassTeacherId);
-    const teacherName = state.users.find((u) => u.id === newClassTeacherId)?.name ?? "Teacher";
-    actions.toast(`Assigned ${teacherName} to Class ${grade}${section} · ${subject}`, { tone: "success" });
-    setEditClassModal(null);
-  };
 
   return (
     <Page wide>
@@ -207,97 +133,56 @@ export default function TeacherAssignment() {
         </Banner>
       )}
 
-      {/* Tabs */}
+      {/* Tabs: Teacher Directory first, then Evaluation Progress & Deadlines */}
       <Tabs
         className="mb-4"
         items={[
-          { id: "classes", label: "Class-wise Assignments", count: classAssignmentRows.length },
-          { id: "progress", label: "Evaluation Progress & Deadlines", count: teacherRows.length },
           { id: "directory", label: "Teacher Directory", count: state.users.filter((u) => u.role === "teacher").length },
+          { id: "progress", label: "Evaluation Progress & Deadlines", count: teacherRows.length },
         ]}
         value={activeTab}
         onChange={(v) => setActiveTab(v as ViewTab)}
       />
 
-      {/* Tab 1: Class-wise Dashboard */}
-      {activeTab === "classes" && (
-        <Panel
-          title={
-            <div>
-              <span>Class &amp; Subject Teacher Matrix</span>
-              <p className="mt-0.5 text-xs font-normal text-ink-3">Keep editable: click Reassign on any class row to update its assigned subject teacher</p>
-            </div>
-          }
-          flush
-        >
+      {/* Tab 1: Directory */}
+      {activeTab === "directory" && (
+        <Panel title="All teachers" flush>
           <Table>
             <thead>
               <tr>
-                <Th sticky>Class</Th>
-                <Th>Subject</Th>
-                <Th>Assigned Teacher</Th>
-                <Th>Teacher Grades</Th>
-                <Th align="right">Students</Th>
-                <Th align="right">AI Evaluated</Th>
-                <Th align="right">Verified</Th>
-                <Th align="right">Action</Th>
+                <Th sticky>Teacher</Th>
+                <Th>Email</Th>
+                <Th>Subjects</Th>
+                <Th>Grades Taught</Th>
+                <Th align="right">Active Exams</Th>
               </tr>
             </thead>
             <tbody>
-              {classAssignmentRows.map((row) => (
-                <Tr key={`${row.grade}-${row.section}-${row.subject}`}>
-                  <Td sticky className="font-semibold text-ink">
-                    Class {row.grade}{row.section}
-                  </Td>
-                  <Td>
-                    <span className="font-medium text-ink">{row.subject}</span>
-                    {row.assessment && <span className="block text-xs text-ink-3">{row.assessment.name}</span>}
-                  </Td>
-                  <Td>
-                    {row.teacher ? (
-                      <span className="flex items-center gap-2">
-                        <Avatar name={row.teacher.name} initials={row.teacher.initials} size="sm" />
-                        <span>
-                          <span className="block font-medium text-ink">{row.teacher.name}</span>
-                          <span className="text-xs text-ink-3">{row.teacher.email}</span>
-                        </span>
+              {state.users.filter((u) => u.role === "teacher").map((t) => (
+                <Tr key={t.id}>
+                  <Td sticky>
+                    <span className="flex items-center gap-2">
+                      <Avatar name={t.name} initials={t.initials} size="sm" />
+                      <span>
+                        <span className="block font-medium text-ink">{t.name}</span>
+                        <span className="text-xs text-ink-3">{t.title}</span>
                       </span>
-                    ) : (
-                      <Tag tone="warning">No teacher assigned</Tag>
-                    )}
-                  </Td>
-                  <Td>
-                    {row.teacher?.grades?.length ? (
-                      <span className="text-xs font-medium text-ink-2">Class {row.teacher.grades.join(", ")}</span>
-                    ) : (
-                      <span className="text-xs text-ink-4">–</span>
-                    )}
-                  </Td>
-                  <Td align="right">{row.studentCount}</Td>
-                  <Td align="right">{row.evaluatedCount}</Td>
-                  <Td align="right">
-                    <span className={cx("font-medium", row.verifiedCount === row.evaluatedCount && row.evaluatedCount > 0 ? "text-success" : "text-ink")}>
-                      {row.verifiedCount} / {row.evaluatedCount}
                     </span>
                   </Td>
-                  <Td align="right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      icon={<Edit3 size={13} strokeWidth={ICON} />}
-                      onClick={() => {
-                        setEditClassModal({
-                          grade: row.grade,
-                          section: row.section,
-                          subject: row.subject,
-                          currentTeacherId: row.teacher?.id ?? null,
-                        });
-                        setNewClassTeacherId(row.teacher?.id ?? "");
-                      }}
-                    >
-                      {row.teacher ? "Reassign" : "Assign"}
-                    </Button>
+                  <Td>{t.email}</Td>
+                  <Td>{t.subjects.join(", ")}</Td>
+                  <Td>
+                    {t.grades?.length ? (
+                      <span className="inline-flex flex-wrap gap-1">
+                        {t.grades.map((g) => (
+                          <span key={g} className="rounded bg-subtle px-1.5 py-0.5 text-xs font-semibold text-ink-2">Class {g}</span>
+                        ))}
+                      </span>
+                    ) : (
+                      <span className="text-ink-4">General</span>
+                    )}
                   </Td>
+                  <Td align="right">{state.assessments.filter((a) => !a.archived && a.teacherIds.includes(t.id)).length}</Td>
                 </Tr>
               ))}
             </tbody>
@@ -365,96 +250,6 @@ export default function TeacherAssignment() {
         </Panel>
       )}
 
-      {/* Tab 3: Directory */}
-      {activeTab === "directory" && (
-        <Panel title="All teachers" flush>
-          <Table>
-            <thead>
-              <tr>
-                <Th sticky>Teacher</Th>
-                <Th>Email</Th>
-                <Th>Subjects</Th>
-                <Th>Grades Taught</Th>
-                <Th align="right">Active Exams</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {state.users.filter((u) => u.role === "teacher").map((t) => (
-                <Tr key={t.id}>
-                  <Td sticky>
-                    <span className="flex items-center gap-2">
-                      <Avatar name={t.name} initials={t.initials} size="sm" />
-                      <span>
-                        <span className="block font-medium text-ink">{t.name}</span>
-                        <span className="text-xs text-ink-3">{t.title}</span>
-                      </span>
-                    </span>
-                  </Td>
-                  <Td>{t.email}</Td>
-                  <Td>{t.subjects.join(", ")}</Td>
-                  <Td>
-                    {t.grades?.length ? (
-                      <span className="inline-flex flex-wrap gap-1">
-                        {t.grades.map((g) => (
-                          <span key={g} className="rounded bg-subtle px-1.5 py-0.5 text-xs font-semibold text-ink-2">Class {g}</span>
-                        ))}
-                      </span>
-                    ) : (
-                      <span className="text-ink-4">General</span>
-                    )}
-                  </Td>
-                  <Td align="right">{state.assessments.filter((a) => !a.archived && a.teacherIds.includes(t.id)).length}</Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </Panel>
-      )}
-
-      {/* Reassign Class Teacher Modal (Keep Editable to Teacher Assigned to Class) */}
-      <Drawer
-        open={!!editClassModal}
-        onClose={() => setEditClassModal(null)}
-        title={editClassModal ? `Assign Teacher: Class ${editClassModal.grade}${editClassModal.section}` : "Assign Teacher"}
-        subtitle={editClassModal ? `Subject: ${editClassModal.subject}` : undefined}
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setEditClassModal(null)}>Cancel</Button>
-            <Button variant="primary" disabled={!newClassTeacherId} onClick={handleAssignClassTeacher}>
-              Save Class Assignment
-            </Button>
-          </div>
-        }
-      >
-        {editClassModal && (
-          <div className="space-y-4 p-5">
-            <p className="text-sm text-ink-2">
-              Select the faculty member responsible for grading and verification of <strong>Class {editClassModal.grade}{editClassModal.section} {editClassModal.subject}</strong>.
-            </p>
-            <Field label="Choose Teacher">
-              <Select
-                value={newClassTeacherId}
-                onChange={(e) => setNewClassTeacherId(e.target.value)}
-                className="w-full"
-              >
-                <option value="">Select a subject teacher</option>
-                {state.users
-                  .filter((u) => u.role === "teacher" && u.subjects.includes(editClassModal.subject))
-                  .map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} (Classes {t.grades?.join(", ") ?? "All"} · {t.subjects.join(", ")})
-                    </option>
-                  ))}
-              </Select>
-            </Field>
-
-            <div className="rounded-md bg-subtle p-3 text-xs text-ink-3">
-              This updates the assigned teacher for all current and future answer sheets belonging to Class {editClassModal.grade}{editClassModal.section} in this subject.
-            </div>
-          </div>
-        )}
-      </Drawer>
-
       {/* Add Teacher Drawer (with Grade selection) */}
       <Drawer
         open={addOpen}
@@ -508,7 +303,7 @@ export default function TeacherAssignment() {
               <Input id="t-email" type="email" value={tForm.email} invalid={!!tErrors.email} onChange={(e) => setT("email", e.target.value)} placeholder="name@greenfield.edu.in" />
             </Field>
 
-            {/* Requirement 5: Add Grade in Teacher Addition */}
+            {/* Requirement: Add Grade in Teacher Addition */}
             <Field label="Grades / Classes Taught" error={tErrors.grades} helper="Select the grades/classes this teacher instructs">
               <div className="flex flex-wrap gap-2 pt-1">
                 {ALL_GRADES.map((g) => {
