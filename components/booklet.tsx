@@ -7,10 +7,10 @@
  *  - VerificationSeal: the verified / not-verified label used on result documents
  */
 import type { ReactNode } from "react";
-import { BadgeCheck, FileWarning, ShieldAlert } from "lucide-react";
+import { BadgeCheck, CheckCircle2, FileWarning, ShieldAlert } from "lucide-react";
 import type { AnswerSheet, Assessment, Distribution, Student } from "../data/types";
 import { hash } from "../data/seed";
-import { latestDistribution, shortCodeOf, type Tone } from "../data/selectors";
+import { latestDistribution, shortCodeOf, sheetTotal, type Tone } from "../data/selectors";
 import { QRCodeSVG } from "qrcode.react";
 import { cx } from "./ui";
 
@@ -160,6 +160,8 @@ function TriangleSketch() {
   );
 }
 
+export type BookletViewMode = "checked" | "original";
+
 export function ScanPage({
   sheet,
   student,
@@ -170,6 +172,7 @@ export function ScanPage({
   zoom = 1,
   rotate = 0,
   thumb,
+  viewMode = "checked",
 }: {
   sheet: AnswerSheet;
   student: Student;
@@ -180,12 +183,14 @@ export function ScanPage({
   zoom?: number;
   rotate?: number;
   thumb?: boolean;
+  viewMode?: BookletViewMode;
 }) {
   const blank = sheet.blankPages.includes(page);
   const missing = sheet.missingPages.includes(page);
   const evals = sheet.questions.filter((qe) => qe.page === page);
   const qOf = (qid: string) => assessment.questions.find((qq) => qq.id === qid);
   const fs = (thumb ? 3.2 : 13) * zoom;
+  const isCheckedMode = viewMode === "checked";
 
   if (missing)
     return (
@@ -198,12 +203,24 @@ export function ScanPage({
 
   const sketchFor = (qid: string): ReactNode => {
     const qq = qOf(qid);
+    let sketch: ReactNode = null;
     if (!qq || qq.type !== "diagram") {
-      if (qq?.id === "sci-q10") return <RaySketch />;
-      if (qq?.id === "mat-q07" || qq?.id === "mat-q05") return <TriangleSketch />;
-      return null;
+      if (qq?.id === "sci-q10") sketch = <RaySketch />;
+      else if (qq?.id === "mat-q07" || qq?.id === "mat-q05") sketch = <TriangleSketch />;
+    } else {
+      sketch = <HeartSketch />;
     }
-    return <HeartSketch />;
+    if (!sketch) return null;
+    return (
+      <div className="relative inline-block">
+        {sketch}
+        {isCheckedMode && !thumb && (
+          <span className="absolute -top-1 -right-2 rounded border border-red-300 bg-red-50/90 px-1 py-0.5 font-hand text-[0.8em] font-bold text-red-600 shadow-xs select-none">
+            ✓ Diagram verified
+          </span>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -246,6 +263,39 @@ export function ScanPage({
           </div>
         )}
 
+        {/* Evaluation Seal / Original Header Banner */}
+        {page === 1 && !thumb && (
+          isCheckedMode ? (
+            <div className="mb-[0.6em] flex items-center justify-between rounded border-2 border-red-600/80 bg-red-50/70 px-[0.7em] py-[0.4em] text-red-700 shadow-xs -rotate-0.5 select-none" style={{ fontSize: "0.68em" }}>
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-red-600 font-mono text-[9px] font-bold text-red-600">
+                  AI✓
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-sans font-bold uppercase tracking-wider text-red-800">Checked Student Copy</span>
+                    <span className="rounded bg-red-600 px-1 py-0.2 text-[9px] font-semibold text-white">EVALUATED</span>
+                  </div>
+                  <p className="font-sans text-[10px] text-red-600/90">
+                    Greenfield Exam Cell · AI Evaluation Engine · {sheet.verification === "verified" ? "Verified by Teacher" : "Provisional AI Evaluation"}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="font-sans text-[9px] uppercase tracking-wider text-red-600/80 block">Grand Total</span>
+                <span className="font-hand text-[1.6em] font-bold text-red-600 leading-none">
+                  {sheetTotal(sheet)} / {assessment.totalMarks}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-[0.5em] flex items-center justify-between rounded border border-border/80 bg-subtle/80 px-[0.7em] py-[0.3em] text-ink-3 select-none" style={{ fontSize: "0.66em" }}>
+              <span className="font-sans font-medium uppercase tracking-wider text-ink-2">📄 Original Student Script (Unmarked Raw Scan)</span>
+              <span className="font-sans text-[10px] text-ink-3">As submitted · Pristine student ink</span>
+            </div>
+          )
+        )}
+
         {blank ? (
           <div className="flex h-[70%] items-center justify-center">
             {!thumb && <span className="rounded-sm bg-surface/80 px-2 py-1 font-sans text-xs text-ink-3">Blank page · flagged, kept in the copy</span>}
@@ -266,16 +316,79 @@ export function ScanPage({
                     "relative block w-full rounded-[3px] text-left font-hand leading-[1.9em] text-pen outline-none transition-colors duration-150",
                     onSelect && !thumb && "cursor-pointer hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-primary-ring",
                     active && "bg-primary/[0.07] ring-2 ring-region",
+                    isCheckedMode && !thumb && "border-b border-dashed border-red-200/60 pb-2 mb-1",
                   )}
                   style={{ padding: "0 0.4em" }}
                   aria-label={qq ? `Answer region for question ${qq.number}` : undefined}
                 >
+                  {/* Active question indicator */}
                   {active && !thumb && (
-                    <span className="absolute -left-[0.2em] -top-[0.9em] rounded-sm bg-region px-1 font-sans text-[10px] font-semibold leading-4 text-on-primary">Q{qq?.number}</span>
+                    <span className="absolute -left-[0.2em] -top-[0.9em] rounded-sm bg-region px-1 font-sans text-[10px] font-semibold leading-4 text-on-primary">
+                      Q{qq?.number}
+                    </span>
                   )}
+
+                  {/* Right Margin Red Circled Score (CBSE / Evaluator Style) */}
+                  {isCheckedMode && qq && !thumb && (
+                    <div className="absolute right-1 top-0.5 flex flex-col items-center pointer-events-none select-none z-10">
+                      <div className="flex items-center gap-1">
+                        <div className="flex h-6 min-w-6 px-1 items-center justify-center rounded-full border-2 border-red-600 bg-red-50/90 font-hand text-[0.88em] font-bold text-red-600 shadow-xs -rotate-6 leading-none">
+                          {qe.awarded}/{qq.marks}
+                        </div>
+                        {qe.awarded === qq.marks ? (
+                          <span className="font-hand text-sm font-black text-red-600">✓</span>
+                        ) : qe.awarded === 0 ? (
+                          <span className="font-hand text-xs font-black text-red-600">✗</span>
+                        ) : (
+                          <span className="font-hand text-[10px] font-bold text-red-500">½✓</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Question Number & Student Answer */}
                   <span className="font-semibold">Q{qq?.number}.</span>{" "}
-                  <span className={cx("whitespace-pre-line", unreadable && "blur-[0.6px]")}>{qe.extracted.replace(/^\[(Diagram|Ray diagram|Figure|Formal letter|Letter|Figure only)\]\s?/, "")}</span>
+                  <span className={cx("whitespace-pre-line", unreadable && "blur-[0.6px]")}>
+                    {qe.extracted.replace(/^\[(Diagram|Ray diagram|Figure|Formal letter|Letter|Figure only)\]\s?/, "")}
+                  </span>
                   {sketchFor(qe.qid)}
+
+                  {/* Checked Mode Red Evaluator Annotations & Criteria Hits */}
+                  {isCheckedMode && qq && !thumb && (
+                    <div className="mt-1 flex flex-wrap items-center gap-1 pt-0.5" style={{ fontSize: "0.72em" }}>
+                      {qq.criteria.map((c) => {
+                        const matched = qe.matched.includes(c.id);
+                        return (
+                          <span
+                            key={c.id}
+                            className={cx(
+                              "inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-sans leading-none select-none",
+                              matched
+                                ? "border border-red-300 bg-red-50/90 text-red-700"
+                                : "border border-dashed border-red-200 bg-surface/90 text-red-400"
+                            )}
+                          >
+                            <span className="font-hand text-[1.15em] font-bold text-red-600">
+                              {matched ? "✓" : "✗"}
+                            </span>
+                            <span className="font-medium">
+                              {matched ? `+${c.marks}` : `0/${c.marks}`} {c.label}
+                            </span>
+                          </span>
+                        );
+                      })}
+                      {qe.editReason && (
+                        <span className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-amber-800 font-sans">
+                          <span>✎ Revised:</span> {qe.editReason}
+                        </span>
+                      )}
+                      {qe.comment && (
+                        <span className="inline-flex items-center gap-1 font-hand text-[1.05em] text-red-600 italic">
+                          Teacher: "{qe.comment}"
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </button>
               );
             })}

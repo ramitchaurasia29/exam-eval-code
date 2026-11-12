@@ -9,14 +9,18 @@ import { useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Check,
+  CheckCircle,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Columns,
+  FileText,
   Flag,
   History,
   Lock,
   Minus,
+  PenTool,
   Plus,
   RotateCw,
   Search,
@@ -81,6 +85,7 @@ export default function ReviewWorkspace() {
   const [justVerified, setJustVerified] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [reviewMode, setReviewMode] = useState<"student" | "question">("student");
+  const [sheetViewMode, setSheetViewMode] = useState<"checked" | "original" | "split">("checked");
 
   // Snapshot for "discard changes"
   const snapshot = useRef<AnswerSheet | null>(null);
@@ -386,12 +391,59 @@ export default function ReviewWorkspace() {
           <div className="flex min-h-0 flex-1 flex-col gap-0 lg:flex-row">
             {/* ---------------- Left: booklet ---------------- */}
             <section aria-label="Scanned answer sheet" className={cx("min-h-0 flex-col border-border bg-muted lg:flex lg:w-[52%] lg:border-r", pane === "sheet" ? "flex flex-1" : "hidden")}>
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border bg-surface px-3 py-1.5">
+              <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-3 py-1.5">
                 <div className="flex items-center gap-1">
                   <IconButton size="sm" label="Previous page" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}><ChevronLeft size={16} strokeWidth={ICON} /></IconButton>
                   <span className="min-w-20 text-center text-xs tabular-nums text-ink-2">Page {page} of {sheet.pages}</span>
                   <IconButton size="sm" label="Next page" disabled={page >= sheet.pages} onClick={() => setPage((p) => p + 1)}><ChevronRight size={16} strokeWidth={ICON} /></IconButton>
                 </div>
+
+                {/* Real evaluation feel: View switcher for Checked Copy vs Original Copy */}
+                <div className="flex items-center rounded-md border border-border bg-muted/60 p-0.5" role="group" aria-label="Booklet copy view mode">
+                  <button
+                    type="button"
+                    onClick={() => setSheetViewMode("checked")}
+                    className={cx(
+                      "flex items-center gap-1 rounded px-2.5 py-1 text-xs transition-all",
+                      sheetViewMode === "checked"
+                        ? "border border-red-300 bg-surface font-semibold text-red-700 shadow-xs"
+                        : "font-medium text-ink-3 hover:text-ink"
+                    )}
+                    title="View evaluated answer sheet with red pen marks and criteria ticks"
+                  >
+                    <PenTool size={13} className="text-red-600" />
+                    <span>Checked Copy (AI)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSheetViewMode("original")}
+                    className={cx(
+                      "flex items-center gap-1 rounded px-2.5 py-1 text-xs transition-all",
+                      sheetViewMode === "original"
+                        ? "border border-border-strong bg-surface font-semibold text-ink shadow-xs"
+                        : "font-medium text-ink-3 hover:text-ink"
+                    )}
+                    title="View raw pristine student answer sheet without marks"
+                  >
+                    <FileText size={13} />
+                    <span>Original Copy</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSheetViewMode("split")}
+                    className={cx(
+                      "hidden sm:flex items-center gap-1 rounded px-2.5 py-1 text-xs transition-all",
+                      sheetViewMode === "split"
+                        ? "border border-border-strong bg-surface font-semibold text-primary shadow-xs"
+                        : "font-medium text-ink-3 hover:text-ink"
+                    )}
+                    title="Compare original student scan side-by-side with checked copy"
+                  >
+                    <Columns size={13} />
+                    <span>Split View</span>
+                  </button>
+                </div>
+
                 <div className="flex items-center gap-1">
                   <IconButton size="sm" label="Zoom out" disabled={zoom <= 0.8} onClick={() => setZoom((z) => Math.round((z - 0.1) * 10) / 10)}><ZoomOut size={16} strokeWidth={ICON} /></IconButton>
                   <button onClick={() => setZoom(1)} className="min-w-11 rounded-sm px-1 text-xs tabular-nums text-ink-2 hover:bg-muted" title="Reset zoom">{Math.round(zoom * 100)}%</button>
@@ -409,7 +461,14 @@ export default function ReviewWorkspace() {
                     return (
                       <li key={p}>
                         <button onClick={() => setPage(p)} aria-label={`Page ${p}`} aria-current={p === page ? "page" : undefined} className={cx("relative block w-full rounded-[3px] p-0.5", p === page ? "ring-2 ring-primary" : "hover:ring-1 hover:ring-border-strong")}>
-                          <ScanPage sheet={sheet} student={student} assessment={assessment} page={p} thumb />
+                          <ScanPage
+                            sheet={sheet}
+                            student={student}
+                            assessment={assessment}
+                            page={p}
+                            thumb
+                            viewMode={sheetViewMode === "original" ? "original" : "checked"}
+                          />
                           <span className="mt-0.5 flex items-center justify-center gap-1 text-[10px] tabular-nums text-ink-3">
                             {p}
                             {flagged && <span className="h-1.5 w-1.5 rounded-full bg-warning" aria-label="Has flags" />}
@@ -420,21 +479,76 @@ export default function ReviewWorkspace() {
                   })}
                 </ol>
                 <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
-                  <div className="mx-auto" style={{ width: `${Math.round(zoom * 100)}%`, maxWidth: Math.round(680 * zoom) }}>
-                    <ScanPage
-                      sheet={sheet}
-                      student={student}
-                      assessment={assessment}
-                      page={page}
-                      activeQid={activeQid}
-                      onSelect={(qid) => {
-                        setActiveQid(qid);
-                        setPane("marking");
-                      }}
-                      zoom={zoom}
-                      rotate={rotate}
-                    />
-                  </div>
+                  {sheetViewMode === "split" ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-[1400px] mx-auto">
+                      {/* Column 1: Original Unmarked Student Scan */}
+                      <div className="flex flex-col">
+                        <div className="mb-2 flex items-center justify-between rounded border border-border bg-surface px-2.5 py-1 text-xs font-semibold text-ink-2 shadow-xs">
+                          <span className="flex items-center gap-1.5">
+                            <FileText size={14} className="text-ink-3" />
+                            Original Student Sheet
+                          </span>
+                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-ink-3 uppercase">Raw Scan</span>
+                        </div>
+                        <ScanPage
+                          sheet={sheet}
+                          student={student}
+                          assessment={assessment}
+                          page={page}
+                          activeQid={activeQid}
+                          onSelect={(qid) => {
+                            setActiveQid(qid);
+                            setPane("marking");
+                          }}
+                          zoom={zoom * 0.95}
+                          rotate={rotate}
+                          viewMode="original"
+                        />
+                      </div>
+
+                      {/* Column 2: Checked Copy with AI Red Marks */}
+                      <div className="flex flex-col">
+                        <div className="mb-2 flex items-center justify-between rounded border border-red-200 bg-red-50/70 px-2.5 py-1 text-xs font-semibold text-red-800 shadow-xs">
+                          <span className="flex items-center gap-1.5">
+                            <CheckCircle size={14} className="text-red-600" />
+                            Checked Copy (AI Evaluated)
+                          </span>
+                          <span className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white uppercase">Red Pen Marks</span>
+                        </div>
+                        <ScanPage
+                          sheet={sheet}
+                          student={student}
+                          assessment={assessment}
+                          page={page}
+                          activeQid={activeQid}
+                          onSelect={(qid) => {
+                            setActiveQid(qid);
+                            setPane("marking");
+                          }}
+                          zoom={zoom * 0.95}
+                          rotate={rotate}
+                          viewMode="checked"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mx-auto" style={{ width: `${Math.round(zoom * 100)}%`, maxWidth: Math.round(680 * zoom) }}>
+                      <ScanPage
+                        sheet={sheet}
+                        student={student}
+                        assessment={assessment}
+                        page={page}
+                        activeQid={activeQid}
+                        onSelect={(qid) => {
+                          setActiveQid(qid);
+                          setPane("marking");
+                        }}
+                        zoom={zoom}
+                        rotate={rotate}
+                        viewMode={sheetViewMode}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
@@ -804,6 +918,25 @@ function QuestionPanel({
           );
         })}
       </ul>
+
+      {/* Teacher Margin Note / Remark on Sheet */}
+      <div className="mt-5 rounded-md border border-border bg-subtle p-3">
+        <div className="flex items-center justify-between">
+          <label htmlFor="teacher-comment" className="text-xs font-medium text-ink">
+            Teacher Margin Note (Syncs to Checked Sheet)
+          </label>
+          <span className="font-hand text-xs font-bold text-red-600">✍ Red pen ink</span>
+        </div>
+        <input
+          id="teacher-comment"
+          type="text"
+          placeholder="Add teacher comment on student answer (e.g. Good explanation, neat handwriting)..."
+          disabled={!canEdit}
+          value={qe.comment ?? ""}
+          onChange={(e) => actions.updateEval(sheetId, qe.qid, { comment: e.target.value })}
+          className="mt-1.5 h-8 w-full rounded border border-border bg-surface px-2.5 text-xs text-ink placeholder:text-ink-4 focus:outline-none focus:ring-2 focus:ring-primary-ring/60 disabled:bg-muted"
+        />
+      </div>
 
       {/* AI explanation */}
       <h3 className="mt-5 text-xs font-medium text-ink-3">Why the AI gave {qe.aiAwarded}</h3>
