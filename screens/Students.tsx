@@ -644,74 +644,27 @@ export default function Students() {
               })}
             </div>
 
-            {/* Section-wise Subject Teachers in the same section container */}
-            <div className="mt-3.5 border-t border-primary/20 pt-3">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <GraduationCap size={15} className="text-primary" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-ink">
-                    Section {selectedGradeCohort.grade}{activeSection} · Subject Teachers
-                  </span>
-                  <span className="rounded bg-primary-soft px-1.5 py-0.5 text-[11px] font-semibold text-primary">
-                    {sectionTeachers.length} {sectionTeachers.length === 1 ? "Teacher" : "Teachers"}
-                  </span>
-                </div>
-                <Link
-                  to="/teachers"
-                  className="text-[11px] font-medium text-primary hover:underline flex items-center gap-1"
-                >
-                  Manage teacher assignments →
-                </Link>
-              </div>
-
+            {/* Section-wise Subject Teachers (Subtle inline strip - Teacher Name & Subject only) */}
+            <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-primary/20 pt-2 text-xs">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-3 shrink-0">
+                Subject Teachers:
+              </span>
               {sectionTeachers.length > 0 ? (
-                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-3">
-                  {sectionTeachers.map(({ teacher, subjects, assessmentCount }) => (
-                    <div
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {sectionTeachers.map(({ teacher, subjects }) => (
+                    <span
                       key={teacher.id}
-                      className="flex items-center justify-between rounded-md border border-border bg-surface p-2.5 shadow-2xs hover:border-primary/40 transition-colors"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border/80 bg-surface px-2 py-1 text-xs text-ink shadow-2xs"
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Avatar name={teacher.name} initials={teacher.initials} size="sm" />
-                        <div className="min-w-0">
-                          <p className="truncate text-xs font-semibold text-ink" title={teacher.name}>
-                            {teacher.name}
-                          </p>
-                          <p className="truncate text-[11px] text-ink-3">
-                            {teacher.title || teacher.email}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
-                        <div className="flex flex-wrap justify-end gap-1">
-                          {subjects.map((sub) => (
-                            <span
-                              key={sub}
-                              className="rounded bg-primary-soft px-1.5 py-0.5 text-[10px] font-semibold text-primary"
-                            >
-                              {sub}
-                            </span>
-                          ))}
-                        </div>
-                        {assessmentCount > 0 && (
-                          <span className="text-[10px] text-ink-4">
-                            {assessmentCount} {assessmentCount === 1 ? "active exam" : "active exams"}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                      <span className="font-medium text-ink">{teacher.name}</span>
+                      <span className="rounded bg-primary-soft px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                        {subjects.join(", ")}
+                      </span>
+                    </span>
                   ))}
                 </div>
               ) : (
-                <div className="rounded-md border border-dashed border-border bg-surface/60 px-3 py-2 text-xs text-ink-3 flex items-center justify-between">
-                  <span>No subject teacher assigned yet to Class {selectedGradeCohort.grade} Section {activeSection}.</span>
-                  <Link
-                    to="/teachers"
-                    className="text-xs font-semibold text-primary hover:underline"
-                  >
-                    + Assign Subject Teacher
-                  </Link>
-                </div>
+                <span className="text-xs text-ink-4 italic">No subject teachers assigned</span>
               )}
             </div>
           </div>
