@@ -65,57 +65,17 @@ function SingleCoverSheet({ student, opts, index, total }: { student: Student; o
           </div>
         </div>
 
-        {/* QR Code Centerpiece */}
-        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-neutral-400 bg-white p-5 text-center">
-          <p className="mb-2 text-xs font-semibold tracking-widest uppercase text-neutral-600">
-            Candidate Digital Identification Code
-          </p>
-          <div className="rounded-lg border-2 border-neutral-900 p-3 bg-white shadow-xs">
-            <QRCodeSVG value={student.barcode} size={170} level="M" marginSize={0} fgColor="#000" bgColor="#fff" />
+        {/* Only QR Code with the code */}
+        <div className="my-auto flex flex-col items-center justify-center p-6 text-center">
+          <div className="rounded-lg border-2 border-neutral-900 p-4 bg-white shadow-xs">
+            <QRCodeSVG value={student.barcode} size={220} level="M" marginSize={0} fgColor="#000" bgColor="#fff" />
           </div>
-          <div className="mt-2.5 flex items-center gap-3">
-            <span className="font-mono text-xs font-semibold tracking-widest text-neutral-800">{student.barcode}</span>
-            <span className="rounded border border-neutral-400 bg-neutral-100 px-2 py-0.5 font-mono text-xs font-bold tracking-wider text-neutral-900" title="Short code for manual proctor/scan matching">
+          <div className="mt-4 flex items-center gap-3">
+            <span className="font-mono text-base font-bold tracking-widest text-neutral-900">{student.barcode}</span>
+            <span className="rounded border border-neutral-400 bg-neutral-100 px-3 py-1 font-mono text-sm font-bold tracking-wider text-neutral-900">
               Code: {shortCodeOf(student.barcode)}
             </span>
           </div>
-          <p className="mt-1 text-[11px] text-neutral-500">Keep this QR code uncreased and smudge-free for automated evaluation</p>
-        </div>
-
-        {/* Attendance Verification Box */}
-        <div className="my-3 rounded border border-neutral-400 bg-neutral-50 px-4 py-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-neutral-800">Candidate Attendance:</span>
-            <div className="flex items-center gap-6">
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-neutral-800">
-                <span className="inline-block h-4 w-4 border-2 border-neutral-800 bg-white"></span> [ ] PRESENT
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded border border-neutral-800 bg-neutral-200 px-2.5 py-1 text-xs font-black text-neutral-900">
-                <span className="inline-block h-4 w-4 border-2 border-neutral-900 bg-white"></span> [ ] ABSENT
-              </span>
-            </div>
-          </div>
-          <p className="mt-1 text-[10px] text-neutral-500">Invigilator: If candidate did not appear, check the ABSENT box above and submit with room attendance memo.</p>
-        </div>
-
-        {/* Signatures & Instructions */}
-        <div className="mt-6 border-t-2 border-neutral-900 pt-6">
-          <div className="grid grid-cols-2 gap-8 pt-4">
-            <div className="text-center">
-              <div className="mx-auto mb-2 h-10 w-48 border-b border-neutral-500"></div>
-              <p className="text-xs font-semibold text-neutral-700">Candidate Signature</p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto mb-2 h-10 w-48 border-b border-neutral-500"></div>
-              <p className="text-xs font-semibold text-neutral-700">Invigilator Signature &amp; Date</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-4 flex items-center justify-between text-[10px] text-neutral-500">
-          <span>Examination Booklet Cover · {opts.schoolName}</span>
-          <span>Page {index + 1} of {total}</span>
         </div>
       </div>
     </div>
