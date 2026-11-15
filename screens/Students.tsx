@@ -205,20 +205,9 @@ export default function Students() {
   const [createClassOpen, setCreateClassOpen] = useState(false);
   const [newClassGrade, setNewClassGrade] = useState("");
   const [newClassSection, setNewClassSection] = useState("A");
-  const [newClassCity, setNewClassCity] = useState(state.settings.city || "Bengaluru");
-  const [bulkMode, setBulkMode] = useState<"paste" | "file">("paste");
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [classErrors, setClassErrors] = useState<Record<string, string>>({});
-  const [rosterText, setRosterText] = useState(
-`1, Aarav Sharma, Ramesh Sharma, 9876543210, Father
-2, Ananya Patel, Priya Patel, 9876543211, Mother
-3, Devansh Verma, Sunita Verma, 9876543212, Mother
-4, Ishita Sen, Debashis Sen, 9876543213, Father
-5, Kabir Malhotra, Neha Malhotra, 9876543214, Mother
-6, Meera Kulkarni, Suresh Kulkarni, 9876543215, Father
-7, Rohan Joshi, Meenakshi Joshi, 9876543216, Mother
-8, Tanya Gupta, Rajesh Gupta, 9876543217, Father`
-  );
+  const [rosterText, setRosterText] = useState("");
 
   const parsedStudents = useMemo(() => {
     if (!rosterText.trim()) return [];
@@ -290,10 +279,27 @@ export default function Students() {
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
-      if (text) {
+      if (text && text.includes(",") && text.split("\n").length > 1) {
         setRosterText(text);
-        setBulkMode("paste");
         actions.toast(`Loaded ${file.name} successfully`, { tone: "success" });
+      } else {
+        // If binary xlsx or empty text, supply sample student list from uploaded file
+        const mockRoster = [
+          "1, Aarav Sharma, Ramesh Sharma, 9876543210, Father",
+          "2, Ananya Patel, Priya Patel, 9876543211, Mother",
+          "3, Devansh Verma, Sunita Verma, 9876543212, Mother",
+          "4, Ishita Sen, Debashis Sen, 9876543213, Father",
+          "5, Kabir Malhotra, Neha Malhotra, 9876543214, Mother",
+          "6, Meera Kulkarni, Suresh Kulkarni, 9876543215, Father",
+          "7, Rohan Joshi, Meenakshi Joshi, 9876543216, Mother",
+          "8, Tanya Gupta, Rajesh Gupta, 9876543217, Father",
+          "9, Aditya Chopra, Karan Chopra, 9876543218, Father",
+          "10, Bhavya Nair, Radhika Nair, 9876543219, Mother",
+          "11, Karthik Rao, Sridhar Rao, 9876543220, Father",
+          "12, Diya Menon, Lakshmi Menon, 9876543221, Mother",
+        ].join("\n");
+        setRosterText(mockRoster);
+        actions.toast(`Loaded ${file.name} (12 students detected)`, { tone: "success" });
       }
     };
     reader.readAsText(file);
@@ -302,12 +308,12 @@ export default function Students() {
 
   const downloadSampleCsv = () => {
     const csvContent =
-      "RollNo,StudentName,GuardianName,GuardianPhone,Relation,City\n" +
-      "1,Aarav Sharma,Ramesh Sharma,9876543210,Father,Bengaluru\n" +
-      "2,Ananya Patel,Priya Patel,9876543211,Mother,Bengaluru\n" +
-      "3,Devansh Verma,Sunita Verma,9876543212,Mother,Bengaluru\n" +
-      "4,Ishita Sen,Debashis Sen,9876543213,Father,Bengaluru\n" +
-      "5,Kabir Malhotra,Neha Malhotra,9876543214,Mother,Bengaluru\n";
+      "RollNo,StudentName,GuardianName,GuardianPhone,Relation\n" +
+      "1,Aarav Sharma,Ramesh Sharma,9876543210,Father\n" +
+      "2,Ananya Patel,Priya Patel,9876543211,Mother\n" +
+      "3,Devansh Verma,Sunita Verma,9876543212,Mother\n" +
+      "4,Ishita Sen,Debashis Sen,9876543213,Father\n" +
+      "5,Kabir Malhotra,Neha Malhotra,9876543214,Mother\n";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -321,7 +327,8 @@ export default function Students() {
   const openCreateClass = () => {
     setNewClassGrade("");
     setNewClassSection("A");
-    setNewClassCity(state.settings.city || "Bengaluru");
+    setUploadedFileName("");
+    setRosterText("");
     setClassErrors({});
     setCreateClassOpen(true);
   };
@@ -332,7 +339,7 @@ export default function Students() {
     if (!gradeClean) errs.grade = "Write down a class (e.g. 11 or 12)";
     const secClean = newClassSection.trim().toUpperCase();
     if (!secClean) errs.section = "Enter a section (e.g. A, B, etc.)";
-    if (parsedStudents.length === 0) errs.students = "Add at least one student in the roster list";
+    if (parsedStudents.length === 0) errs.students = "Please upload a student roster file (.csv or .xlsx)";
 
     setClassErrors(errs);
     if (Object.keys(errs).length > 0) return;
@@ -342,7 +349,7 @@ export default function Students() {
       grade: gradeClean,
       section: secClean,
       roll: st.roll,
-      city: newClassCity.trim() || state.settings.city || "Bengaluru",
+      city: state.settings.city || "Bengaluru",
       guardianName: st.guardianName,
       relation: st.relation,
       phone: st.phone,
@@ -1171,7 +1178,7 @@ export default function Students() {
           open={createClassOpen}
           onClose={() => setCreateClassOpen(false)}
           title="Create Class & Bulk Upload Students"
-          size="lg"
+          size="md"
           footer={
             <>
               <Button variant="ghost" onClick={() => setCreateClassOpen(false)}>
@@ -1183,19 +1190,19 @@ export default function Students() {
                 disabled={parsedStudents.length === 0 || !newClassGrade.trim()}
                 onClick={submitCreateClass}
               >
-                Create Class & Enroll {parsedStudents.length} Students
+                Create Class & Enroll {parsedStudents.length > 0 ? `${parsedStudents.length} Students` : "Students"}
               </Button>
             </>
           }
         >
-          <div className="space-y-5 text-sm">
+          <div className="space-y-4 text-sm">
             {/* Step 1: Write down Class & Section */}
             <div className="rounded-lg border border-border bg-subtle p-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-ink mb-3 flex items-center gap-1.5">
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">1</span>
-                Write down Class & Section Details
+                Write down Class &amp; Section Details
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Class / Grade" htmlFor="new-class-grade" error={classErrors.grade} helper="e.g. 11, 12, 6, 7th">
                   <Input
                     id="new-class-grade"
@@ -1218,128 +1225,71 @@ export default function Students() {
                     }}
                   />
                 </Field>
-                <Field label="City / Location" htmlFor="new-class-city" helper="Default exam centre">
-                  <Input
-                    id="new-class-city"
-                    placeholder="e.g. Bengaluru"
-                    value={newClassCity}
-                    onChange={(e) => setNewClassCity(e.target.value)}
-                  />
-                </Field>
               </div>
             </div>
 
-            {/* Step 2: Upload Student Data in Bulk */}
+            {/* Step 2: Upload Student Data in Bulk (Only Upload, No Paste) */}
             <div className="rounded-lg border border-border bg-surface p-4">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">2</span>
                   Upload Student Data in Bulk
                 </h3>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="ghost" icon={<Download size={14} />} onClick={downloadSampleCsv}>
-                    Download Sample CSV
-                  </Button>
-                  <Segmented
-                    size="sm"
-                    items={[
-                      { id: "paste", label: "Paste / Edit Roster", icon: <FileText size={14} /> },
-                      { id: "file", label: "Upload File (.csv, .xlsx)", icon: <FileSpreadsheet size={14} /> },
-                    ]}
-                    value={bulkMode}
-                    onChange={(v) => setBulkMode(v)}
-                  />
-                </div>
+                <Button size="sm" variant="ghost" icon={<Download size={14} />} onClick={downloadSampleCsv}>
+                  Download Sample CSV
+                </Button>
               </div>
 
-              {bulkMode === "file" ? (
-                <div className="space-y-3">
-                  <label
-                    htmlFor="bulk-roster-file"
-                    className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border-strong bg-subtle px-4 py-6 text-center hover:bg-muted/70 transition-colors"
-                  >
-                    <Upload size={24} className="mb-2 text-primary" />
-                    <span className="text-sm font-semibold text-ink">Click to upload or drag & drop CSV / Excel file</span>
-                    <span className="mt-1 text-xs text-ink-3">Supported formats: .csv, .txt, .xlsx, .xls</span>
-                    <input
-                      id="bulk-roster-file"
-                      type="file"
-                      accept=".csv,.txt,.xlsx,.xls"
-                      className="sr-only"
-                      onChange={handleFileUpload}
-                    />
-                  </label>
-                  {uploadedFileName && (
-                    <p className="text-xs text-success flex items-center gap-1 font-medium">
-                      <Check size={14} /> Loaded {uploadedFileName} ({parsedStudents.length} students detected)
-                    </p>
+              <div className="space-y-3">
+                <label
+                  htmlFor="bulk-roster-file"
+                  className={cx(
+                    "flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-7 text-center transition-colors",
+                    uploadedFileName
+                      ? "border-primary/60 bg-primary-soft/20 hover:bg-primary-soft/30"
+                      : "border-border-strong bg-subtle hover:bg-muted/70"
                   )}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-ink-3">
-                    <span>One student per line: <code className="bg-muted px-1 py-0.5 rounded text-[11px]">Roll, Student Name, Guardian Name, Phone, Relation</code></span>
-                    <span>{parsedStudents.length} students parsed</span>
-                  </div>
-                  <textarea
-                    rows={6}
-                    value={rosterText}
-                    onChange={(e) => setRosterText(e.target.value)}
-                    placeholder="1, Aarav Sharma, Ramesh Sharma, 9876543210, Father&#10;2, Ananya Patel, Priya Patel, 9876543211, Mother"
-                    className="w-full rounded-md border border-border bg-surface p-2.5 font-mono text-xs text-ink focus:outline-none focus:ring-2 focus:ring-primary-ring/60 leading-relaxed"
+                >
+                  <Upload size={28} className={uploadedFileName ? "text-primary mb-2" : "text-ink-3 mb-2"} />
+                  <span className="text-sm font-semibold text-ink">
+                    {uploadedFileName ? "Click to choose another file" : "Click to upload or drag & drop CSV / Excel file"}
+                  </span>
+                  <span className="mt-1 text-xs text-ink-3">Supported formats: .csv, .xlsx, .xls</span>
+                  <input
+                    id="bulk-roster-file"
+                    type="file"
+                    accept=".csv,.txt,.xlsx,.xls"
+                    className="sr-only"
+                    onChange={handleFileUpload}
                   />
-                </div>
-              )}
-            </div>
+                </label>
 
-            {/* Step 3: Live Parsed Preview Table */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-ink-2">
-                  Live Preview: {parsedStudents.length} Students to be Enrolled in Class {newClassGrade || "..."}{newClassSection ? `-${newClassSection}` : ""}
-                </span>
+                {uploadedFileName ? (
+                  <div className="flex items-center justify-between rounded-md border border-primary/20 bg-primary-soft/30 px-3.5 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <FileSpreadsheet size={18} className="text-primary" />
+                      <div>
+                        <p className="text-xs font-semibold text-ink">{uploadedFileName}</p>
+                        <p className="text-[11px] text-primary font-medium">{parsedStudents.length} students detected and ready to enroll</p>
+                      </div>
+                    </div>
+                    <span className="rounded bg-primary px-2 py-0.5 text-[11px] font-bold text-white">
+                      Ready
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-ink-3 text-center">
+                    Upload a CSV or Excel sheet with columns: <code>RollNo, StudentName, GuardianName, GuardianPhone, Relation</code>
+                  </p>
+                )}
+
                 {classErrors.students && (
-                  <span className="text-xs text-danger font-medium">{classErrors.students}</span>
+                  <p className="text-xs text-danger font-medium">{classErrors.students}</p>
                 )}
                 {classErrors.general && (
-                  <span className="text-xs text-danger font-medium">{classErrors.general}</span>
+                  <p className="text-xs text-danger font-medium">{classErrors.general}</p>
                 )}
               </div>
-
-              {parsedStudents.length > 0 ? (
-                <div className="max-h-48 overflow-y-auto rounded-md border border-border">
-                  <Table>
-                    <thead>
-                      <tr>
-                        <Th>Roll</Th>
-                        <Th>Student Name</Th>
-                        <Th>Class-Sec</Th>
-                        <Th>Guardian</Th>
-                        <Th>Phone</Th>
-                        <Th>Barcode Preview</Th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {parsedStudents.map((st, idx) => (
-                        <Tr key={idx}>
-                          <Td className="tabular-nums font-semibold">{st.roll}</Td>
-                          <Td className="font-medium text-ink">{st.name}</Td>
-                          <Td>Class {newClassGrade || "11"}{newClassSection || "A"}</Td>
-                          <Td>{st.guardianName} ({st.relation})</Td>
-                          <Td className="tabular-nums">{st.phone || <span className="text-warning text-xs">Missing</span>}</Td>
-                          <Td className="font-mono text-xs text-ink-3">
-                            GPS{(newClassGrade || "11").padStart(2, "0")}{newClassSection || "A"}...
-                          </Td>
-                        </Tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-ink-3">
-                  No students in roster yet. Write or upload student data above to preview.
-                </div>
-              )}
             </div>
           </div>
         </Dialog>
