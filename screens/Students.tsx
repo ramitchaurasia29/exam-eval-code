@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Upload, UserPlus, QrCode, Printer, Edit2, Trash2, Users, AlertCircle, CheckCircle2, FolderPlus, Download, FileSpreadsheet, FileText, Check, Plus } from "lucide-react";
+import { Upload, UserPlus, QrCode, Printer, Edit2, Trash2, Users, AlertCircle, CheckCircle2, FolderPlus, Download, FileSpreadsheet, FileText, Check, Plus, BookOpen, GraduationCap } from "lucide-react";
 import QrPrintDialog from "../components/QrPrintDialog";
 import { QRCodeSVG } from "qrcode.react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Lifecycle } from "../components/booklet";
 import { useStore } from "../data/store";
 import { sheetTotal } from "../data/selectors";
-import type { Student, Guardian } from "../data/types";
-import { Button, Dialog, Drawer, Field, Input, EmptyState, ICON, Page, PageHeader, Panel, SearchInput, Select, StatusText, Switch, Table, Td, Th, Tr, Tag, Segmented, cx } from "../components/ui";
+import type { Student, Guardian, User } from "../data/types";
+import { Button, Dialog, Drawer, Field, Input, EmptyState, ICON, Page, PageHeader, Panel, SearchInput, Select, StatusText, Switch, Table, Td, Th, Tr, Tag, Segmented, cx, Avatar } from "../components/ui";
 
 const PAGE_SIZE = 50;
 
@@ -100,6 +100,77 @@ export default function Students() {
 
   const selectedGradeCohort = grade !== "all" ? gradeCohorts.find((g) => g.grade === grade) : null;
 
+  // When an individual grade is selected, "all sections" is removed - default to the grade's first section
+  const activeSection = selectedGradeCohort
+    ? (section !== "all" && selectedGradeCohort.sectionList.some((s) => s.section === section)
+        ? section
+        : (selectedGradeCohort.sectionList[0]?.section || "A"))
+    : section;
+
+  // Retrieve subject teachers teaching this specific class and section
+  const getSectionTeachers = (targetGrade: string, targetSection: string) => {
+    const teacherMap = new Map<string, { teacher: User; subjects: Set<string>; assessmentCount: number }>();
+
+    // 1. Direct assignments from active assessments matching this grade and section
+    const matchingAssessments = state.assessments.filter(
+      (a) => !a.archived && a.grade === targetGrade && (!a.sections || a.sections.length === 0 || a.sections.includes(targetSection))
+    );
+    matchingAssessments.forEach((a) => {
+      a.teacherIds.forEach((tid) => {
+        const u = state.users.find((user) => user.id === tid && user.role === "teacher");
+        if (u) {
+          if (!teacherMap.has(u.id)) {
+            teacherMap.set(u.id, { teacher: u, subjects: new Set(), assessmentCount: 0 });
+          }
+          const entry = teacherMap.get(u.id)!;
+          if (a.subject) entry.subjects.add(a.subject);
+          entry.assessmentCount++;
+        }
+      });
+    });
+
+    // 2. Direct assignments from student sheets for this section
+    const secStudentIds = new Set(
+      state.students.filter((s) => s.grade === targetGrade && s.section === targetSection).map((s) => s.id)
+    );
+    state.sheets
+      .filter((s) => secStudentIds.has(s.studentId) && s.teacherId)
+      .forEach((s) => {
+        const u = state.users.find((user) => user.id === s.teacherId && user.role === "teacher");
+        const a = state.assessments.find((asm) => asm.id === s.assessmentId);
+        if (u) {
+          if (!teacherMap.has(u.id)) {
+            teacherMap.set(u.id, { teacher: u, subjects: new Set(), assessmentCount: 0 });
+          }
+          const entry = teacherMap.get(u.id)!;
+          if (a?.subject) entry.subjects.add(a.subject);
+        }
+      });
+
+    // 3. Faculty allocated to this grade in their profile roster
+    state.users
+      .filter((u) => u.role === "teacher" && u.grades && u.grades.includes(targetGrade))
+      .forEach((u) => {
+        if (!teacherMap.has(u.id)) {
+          teacherMap.set(u.id, { teacher: u, subjects: new Set(u.subjects), assessmentCount: 0 });
+        } else {
+          const entry = teacherMap.get(u.id)!;
+          u.subjects.forEach((subj) => entry.subjects.add(subj));
+        }
+      });
+
+    return Array.from(teacherMap.values()).map(({ teacher, subjects, assessmentCount }) => ({
+      teacher,
+      subjects: Array.from(subjects).length ? Array.from(subjects) : teacher.subjects,
+      assessmentCount,
+    }));
+  };
+
+  const sectionTeachers = useMemo(() => {
+    if (!selectedGradeCohort) return [];
+    return getSectionTeachers(selectedGradeCohort.grade, activeSection);
+  }, [selectedGradeCohort, activeSection, state.assessments, state.users, state.sheets, state.students]);
+
   const grades = Array.from(new Set(state.students.map((s) => s.grade))).sort((a, b) => Number(a) - Number(b));
   const sections = Array.from(new Set(state.students.filter((s) => grade === "all" || s.grade === grade).map((s) => s.section))).sort();
 
@@ -109,13 +180,15 @@ export default function Students() {
     return state.students.filter(
       (s) =>
         (grade === "all" || s.grade === grade) &&
-        (section === "all" || s.section === section) &&
+        (selectedGradeCohort
+          ? s.section === activeSection
+          : (section === "all" || s.section === section)) &&
         (!missingPhone || !s.guardian.phone) &&
         (!term || [s.name, String(s.roll), s.barcode, s.city || ""].some((v) => norm(v).includes(term)))
     );
-  }, [state.students, grade, section, missingPhone, query]);
+  }, [state.students, grade, section, activeSection, selectedGradeCohort, missingPhone, query]);
 
-  useEffect(() => { setPage(0); }, [query, grade, section, missingPhone]);
+  useEffect(() => { setPage(0); }, [query, grade, section, activeSection, missingPhone]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const visible = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -471,7 +544,7 @@ export default function Students() {
                 key={g.grade}
                 onClick={() => {
                   setGrade(g.grade);
-                  setSection("all");
+                  setSection(g.sectionList[0]?.section || "A");
                 }}
                 className={cx(
                   "cursor-pointer rounded-lg border p-3.5 transition-all shadow-xs",
@@ -518,32 +591,15 @@ export default function Students() {
                 <span className="text-xs font-bold uppercase tracking-wider text-primary">
                   Class {selectedGradeCohort.grade} · Section Bifurcation
                 </span>
-                <span className="text-xs text-ink-3">({selectedGradeCohort.students.length} students in {selectedGradeCohort.sectionList.length} sections)</span>
+                <span className="text-xs text-ink-3">({selectedGradeCohort.students.length} students in {selectedGradeCohort.sectionList.length} {selectedGradeCohort.sectionList.length === 1 ? "section" : "sections"})</span>
               </div>
-              <span className="text-xs text-ink-3">Click any section to filter</span>
+              <span className="text-xs text-ink-3">Select section to view students &amp; subject teachers</span>
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              {/* All sections of this grade */}
-              <button
-                type="button"
-                onClick={() => setSection("all")}
-                className={cx(
-                  "flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-colors shadow-xs",
-                  section === "all"
-                    ? "border-primary bg-primary text-on-primary font-semibold shadow-sm"
-                    : "border-border bg-surface text-ink hover:bg-subtle"
-                )}
-              >
-                <span>All Sections (Class {selectedGradeCohort.grade})</span>
-                <span className={cx("rounded px-1.5 py-0.5 text-[11px] font-bold tabular-nums", section === "all" ? "bg-white/20 text-white" : "bg-muted text-ink-2")}>
-                  {selectedGradeCohort.students.length}
-                </span>
-              </button>
-
-              {/* Each Section Card */}
+              {/* Each Individual Section Card (Removed "All sections" option) */}
               {selectedGradeCohort.sectionList.map((sec) => {
-                const isSecActive = section === sec.section;
+                const isSecActive = activeSection === sec.section;
                 const minRoll = sec.students.reduce((m, s) => Math.min(m, s.roll), Infinity);
                 const maxRoll = sec.students.reduce((m, s) => Math.max(m, s.roll), -Infinity);
                 return (
@@ -574,6 +630,77 @@ export default function Students() {
                 );
               })}
             </div>
+
+            {/* Section-wise Subject Teachers in the same section container */}
+            <div className="mt-3.5 border-t border-primary/20 pt-3">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <GraduationCap size={15} className="text-primary" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-ink">
+                    Section {selectedGradeCohort.grade}{activeSection} · Subject Teachers
+                  </span>
+                  <span className="rounded bg-primary-soft px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+                    {sectionTeachers.length} {sectionTeachers.length === 1 ? "Teacher" : "Teachers"}
+                  </span>
+                </div>
+                <Link
+                  to="/teachers"
+                  className="text-[11px] font-medium text-primary hover:underline flex items-center gap-1"
+                >
+                  Manage teacher assignments →
+                </Link>
+              </div>
+
+              {sectionTeachers.length > 0 ? (
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-3">
+                  {sectionTeachers.map(({ teacher, subjects, assessmentCount }) => (
+                    <div
+                      key={teacher.id}
+                      className="flex items-center justify-between rounded-md border border-border bg-surface p-2.5 shadow-2xs hover:border-primary/40 transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Avatar name={teacher.name} initials={teacher.initials} size="sm" />
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-semibold text-ink" title={teacher.name}>
+                            {teacher.name}
+                          </p>
+                          <p className="truncate text-[11px] text-ink-3">
+                            {teacher.title || teacher.email}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+                        <div className="flex flex-wrap justify-end gap-1">
+                          {subjects.map((sub) => (
+                            <span
+                              key={sub}
+                              className="rounded bg-primary-soft px-1.5 py-0.5 text-[10px] font-semibold text-primary"
+                            >
+                              {sub}
+                            </span>
+                          ))}
+                        </div>
+                        {assessmentCount > 0 && (
+                          <span className="text-[10px] text-ink-4">
+                            {assessmentCount} {assessmentCount === 1 ? "active exam" : "active exams"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-md border border-dashed border-border bg-surface/60 px-3 py-2 text-xs text-ink-3 flex items-center justify-between">
+                  <span>No subject teacher assigned yet to Class {selectedGradeCohort.grade} Section {activeSection}.</span>
+                  <Link
+                    to="/teachers"
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    + Assign Subject Teacher
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-border bg-subtle/50 px-4 py-2.5 text-xs text-ink-3 flex items-center justify-between">
@@ -587,12 +714,31 @@ export default function Students() {
       <Panel flush>
         <div className="flex flex-col gap-2 border-b border-border p-3 lg:flex-row lg:items-center">
           <SearchInput label="Search students" value={query} onChange={setQuery} placeholder="Name, roll no, city or QR ID" className="w-full lg:max-w-sm" />
-          <Select aria-label="Filter by class" value={grade} onChange={(e) => { setGrade(e.target.value); setSection("all"); }} className="w-full lg:w-40">
+          <Select
+            aria-label="Filter by class"
+            value={grade}
+            onChange={(e) => {
+              const newG = e.target.value;
+              setGrade(newG);
+              if (newG === "all") {
+                setSection("all");
+              } else {
+                const cohort = gradeCohorts.find((c) => c.grade === newG);
+                setSection(cohort?.sectionList[0]?.section || "A");
+              }
+            }}
+            className="w-full lg:w-40"
+          >
             <option value="all">All classes</option>
             {grades.map((g) => <option key={g} value={g}>Class {g}</option>)}
           </Select>
-          <Select aria-label="Filter by section" value={section} onChange={(e) => setSection(e.target.value)} className="w-full lg:w-40">
-            <option value="all">All sections</option>
+          <Select
+            aria-label="Filter by section"
+            value={selectedGradeCohort ? activeSection : section}
+            onChange={(e) => setSection(e.target.value)}
+            className="w-full lg:w-40"
+          >
+            {!selectedGradeCohort && <option value="all">All sections</option>}
             {sections.map((s) => <option key={s} value={s}>Section {s}</option>)}
           </Select>
           <label className="flex h-9 items-center gap-2 whitespace-nowrap px-1 text-[13px] text-ink-2">
