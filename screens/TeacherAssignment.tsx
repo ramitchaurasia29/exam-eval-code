@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Upload, UserPlus, Edit2, Trash2 } from "lucide-react";
+import { Upload, UserPlus, Edit2, Trash2, Users, Check, Plus } from "lucide-react";
 import { useStore } from "../data/store";
 import { now, pct, relTime } from "../data/selectors";
 import type { AnswerSheet, Assessment, User } from "../data/types";
@@ -10,21 +10,250 @@ const ALL_GRADES = ["6", "7", "8", "9", "10", "11", "12"];
 type Scope = "unassigned" | "section" | "reassign";
 type ViewTab = "directory" | "progress";
 
+/** Reusable Class + Section Multi-Selector for Teacher Assignment */
+function ClassSectionPicker({
+  selectedSections,
+  onChange,
+  error,
+  availableGrades,
+}: {
+  selectedSections: string[];
+  onChange: (sections: string[]) => void;
+  error?: string;
+  availableGrades: Array<{ grade: string; sections: string[] }>;
+}) {
+  const [customGrade, setCustomGrade] = useState("");
+  const [customSection, setCustomSection] = useState("");
+  const [customList, setCustomList] = useState<Array<{ grade: string; sections: string[] }>>([]);
+
+  const allCohorts = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    availableGrades.forEach((g) => {
+      if (!map.has(g.grade)) map.set(g.grade, new Set());
+      g.sections.forEach((s) => map.get(g.grade)!.add(s));
+    });
+    customList.forEach((c) => {
+      if (!map.has(c.grade)) map.set(c.grade, new Set());
+      c.sections.forEach((s) => map.get(c.grade)!.add(s));
+    });
+    return Array.from(map.entries())
+      .map(([grade, secSet]) => ({
+        grade,
+        sections: Array.from(secSet).sort(),
+      }))
+      .sort((a, b) => Number(a.grade) - Number(b.grade));
+  }, [availableGrades, customList]);
+
+  const toggleSection = (code: string) => {
+    if (selectedSections.includes(code)) {
+      onChange(selectedSections.filter((s) => s !== code));
+    } else {
+      onChange([...selectedSections, code]);
+    }
+  };
+
+  const toggleAllForGrade = (grade: string, gradeSections: string[]) => {
+    const gradeCodes = gradeSections.map((s) => `${grade}${s}`);
+    const allSelected = gradeCodes.every((c) => selectedSections.includes(c));
+    if (allSelected) {
+      onChange(selectedSections.filter((s) => !gradeCodes.includes(s)));
+    } else {
+      const merged = Array.from(new Set([...selectedSections, ...gradeCodes]));
+      onChange(merged);
+    }
+  };
+
+  const addCustom = () => {
+    const g = customGrade.trim().replace(/^Class\s*/i, "");
+    const s = customSection.trim().toUpperCase();
+    if (!g || !s) return;
+    const code = `${g}${s}`;
+    setCustomList((prev) => {
+      const next = [...prev];
+      const existing = next.find((x) => x.grade === g);
+      if (existing) {
+        if (!existing.sections.includes(s)) existing.sections.push(s);
+      } else {
+        next.push({ grade: g, sections: [s] });
+      }
+      return next;
+    });
+    if (!selectedSections.includes(code)) {
+      onChange([...selectedSections, code]);
+    }
+    setCustomGrade("");
+    setCustomSection("");
+  };
+
+  return (
+    <div className="space-y-3 pt-1">
+      <div className="space-y-2.5">
+        {allCohorts.map((c) => {
+          const gradeCodes = c.sections.map((s) => `${c.grade}${s}`);
+          const allSelected = gradeCodes.every((code) => selectedSections.includes(code));
+          const someSelected = gradeCodes.some((code) => selectedSections.includes(code));
+
+          return (
+            <div key={c.grade} className="rounded-lg border border-border/80 bg-subtle/30 p-2.5 transition-colors">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-bold text-ink flex items-center gap-1.5">
+                  <Users size={13} className="text-primary" />
+                  Class {c.grade}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => toggleAllForGrade(c.grade, c.sections)}
+                  className="text-[11px] font-semibold text-primary hover:underline"
+                >
+                  {allSelected ? "Deselect Class" : someSelected ? "Select All" : `Select All Class ${c.grade}`}
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {c.sections.map((sec) => {
+                  const code = `${c.grade}${sec}`;
+                  const isSelected = selectedSections.includes(code);
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => toggleSection(code)}
+                      className={cx(
+                        "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium border transition-colors shadow-2xs",
+                        isSelected
+                          ? "bg-primary text-white border-primary font-semibold shadow-xs"
+                          : "bg-surface text-ink hover:bg-subtle border-border"
+                      )}
+                    >
+                      <span>Section {c.grade}{sec}</span>
+                      {isSelected && <Check size={12} strokeWidth={2.5} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Inline custom Class & Section input */}
+      <div className="rounded-md border border-dashed border-border p-2.5 bg-surface/50">
+        <p className="mb-1.5 text-[11px] font-semibold text-ink-3 uppercase tracking-wider">
+          + Add another Class &amp; Section
+        </p>
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="Class (e.g. 11)"
+            value={customGrade}
+            onChange={(e) => setCustomGrade(e.target.value)}
+            className="w-28 text-xs"
+          />
+          <Input
+            placeholder="Section (e.g. C)"
+            value={customSection}
+            onChange={(e) => setCustomSection(e.target.value.toUpperCase())}
+            className="w-28 text-xs"
+          />
+          <Button size="sm" variant="secondary" onClick={addCustom} disabled={!customGrade.trim() || !customSection.trim()}>
+            Add Section
+          </Button>
+        </div>
+      </div>
+
+      {/* Selected summary */}
+      <div className="flex items-center justify-between text-xs">
+        {selectedSections.length === 0 ? (
+          <span className="text-warning text-xs font-medium">⚠ Please select at least one class &amp; section</span>
+        ) : (
+          <div className="flex flex-wrap items-center gap-1 text-xs text-ink-3">
+            <span className="font-medium text-ink">Assigned:</span>
+            {selectedSections.map((s) => (
+              <span key={s} className="rounded bg-primary-soft px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+                Class {s}
+              </span>
+            ))}
+            <span>({selectedSections.length} {selectedSections.length === 1 ? "section" : "sections"})</span>
+          </div>
+        )}
+      </div>
+
+      {error && <p className="text-xs text-danger font-medium">{error}</p>}
+    </div>
+  );
+}
+
 export default function TeacherAssignment() {
   const { state, actions } = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<ViewTab>("directory");
 
-  // Add Teacher State (with Grades)
+  // Derive available classes and sections across school
+  const availableClassSections = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+
+    // Greenfield Public School defaults
+    map.set("8", new Set(["A"]));
+    map.set("9", new Set(["A", "B"]));
+    map.set("10", new Set(["A", "B"]));
+
+    // Enrolled students
+    state.students.forEach((s) => {
+      if (!map.has(s.grade)) map.set(s.grade, new Set());
+      map.get(s.grade)!.add(s.section);
+    });
+
+    // Active assessments
+    state.assessments.forEach((a) => {
+      if (!map.has(a.grade)) map.set(a.grade, new Set());
+      (a.sections || ["A"]).forEach((sec) => map.get(a.grade)!.add(sec));
+    });
+
+    // Existing teachers assigned sections
+    state.users.forEach((u) => {
+      if (u.sections) {
+        u.sections.forEach((secCode) => {
+          const g = secCode.replace(/[^0-9]/g, "");
+          const s = secCode.replace(/^[0-9]+/, "") || "A";
+          if (g) {
+            if (!map.has(g)) map.set(g, new Set());
+            map.get(g)!.add(s);
+          }
+        });
+      }
+    });
+
+    return Array.from(map.entries())
+      .map(([grade, secSet]) => ({
+        grade,
+        sections: Array.from(secSet).sort(),
+      }))
+      .sort((a, b) => Number(a.grade) - Number(b.grade));
+  }, [state.students, state.assessments, state.users]);
+
+  // Add Teacher State (with Class + Section)
   const [addOpen, setAddOpen] = useState(false);
-  const [tForm, setTForm] = useState({ name: "", email: "", title: "", subjects: [] as string[], grades: [] as string[] });
+  const [tForm, setTForm] = useState({
+    name: "",
+    email: "",
+    title: "",
+    subjects: [] as string[],
+    grades: [] as string[],
+    sections: [] as string[],
+  });
   const [tErrors, setTErrors] = useState<Record<string, string>>({});
   const [addedTeacher, setAddedTeacher] = useState<User | null>(null);
 
   const setT = (k: "name" | "email" | "title", v: string) => { setTForm((f) => ({ ...f, [k]: v })); setTErrors((e) => ({ ...e, [k]: "" })); };
   
   const openAddTeacher = () => {
-    setTForm({ name: "", email: "", title: "", subjects: [], grades: ["10"] });
+    setTForm({
+      name: "",
+      email: "",
+      title: "",
+      subjects: [],
+      grades: ["10"],
+      sections: ["10A"],
+    });
     setTErrors({});
     setAddedTeacher(null);
     setAddOpen(true);
@@ -35,7 +264,7 @@ export default function TeacherAssignment() {
     if (!tForm.name.trim()) e.name = "Enter the teacher's full name";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(tForm.email.trim())) e.email = "Enter a valid email address";
     if (tForm.subjects.length === 0) e.subjects = "Select at least one subject";
-    if (tForm.grades.length === 0) e.grades = "Select at least one grade taught";
+    if (tForm.sections.length === 0) e.sections = "Select at least one class and section assigned to this teacher";
     setTErrors(e);
     if (Object.keys(e).length) return;
 
@@ -44,26 +273,42 @@ export default function TeacherAssignment() {
       email: tForm.email,
       subjects: tForm.subjects,
       grades: tForm.grades,
+      sections: tForm.sections,
       title: tForm.title,
     });
     if (!res.ok || !res.teacher) { setTErrors({ email: res.error ?? "Could not add teacher" }); return; }
     setAddedTeacher(res.teacher);
-    actions.toast(`${res.teacher.name} added with grades Class ${tForm.grades.join(", ")}`, { tone: "success" });
+    actions.toast(`${res.teacher.name} assigned to Class ${tForm.sections.join(", ")}`, { tone: "success" });
   };
 
-  // Edit Teacher State
+  // Edit Teacher State (with Class + Section)
   const [editingTeacher, setEditingTeacher] = useState<User | null>(null);
-  const [editTeacherForm, setEditTeacherForm] = useState({ name: "", email: "", title: "", subjects: [] as string[], grades: [] as string[] });
+  const [editTeacherForm, setEditTeacherForm] = useState({
+    name: "",
+    email: "",
+    title: "",
+    subjects: [] as string[],
+    grades: [] as string[],
+    sections: [] as string[],
+  });
   const [editTeacherErrors, setEditTeacherErrors] = useState<Record<string, string>>({});
 
   const startEditTeacher = (t: User) => {
     setEditingTeacher(t);
+    const initialSections = (t.sections && t.sections.length > 0)
+      ? [...t.sections]
+      : (t.grades && t.grades.length > 0)
+        ? t.grades.map((g) => `${g}A`)
+        : ["10A"];
+    const initialGrades = Array.from(new Set(initialSections.map((s) => s.replace(/[^0-9]/g, "")))).filter(Boolean);
+
     setEditTeacherForm({
       name: t.name,
       email: t.email,
       title: t.title,
       subjects: [...t.subjects],
-      grades: t.grades ? [...t.grades] : ["9", "10"],
+      grades: initialGrades.length ? initialGrades : (t.grades ? [...t.grades] : ["9", "10"]),
+      sections: initialSections,
     });
     setEditTeacherErrors({});
   };
@@ -74,7 +319,7 @@ export default function TeacherAssignment() {
     if (!editTeacherForm.name.trim()) e.name = "Enter the teacher's full name";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editTeacherForm.email.trim())) e.email = "Enter a valid email address";
     if (editTeacherForm.subjects.length === 0) e.subjects = "Select at least one subject";
-    if (editTeacherForm.grades.length === 0) e.grades = "Select at least one grade taught";
+    if (editTeacherForm.sections.length === 0) e.sections = "Select at least one class and section assigned to this teacher";
     setEditTeacherErrors(e);
     if (Object.keys(e).length) return;
 
@@ -84,12 +329,13 @@ export default function TeacherAssignment() {
       title: editTeacherForm.title.trim() || `${editTeacherForm.subjects.join(" & ")} teacher`,
       subjects: editTeacherForm.subjects,
       grades: editTeacherForm.grades,
+      sections: editTeacherForm.sections,
     });
     if (!res.ok) {
       setEditTeacherErrors({ email: res.error ?? "Could not update teacher" });
       return;
     }
-    actions.toast(`${editTeacherForm.name.trim()} updated successfully`, { tone: "success" });
+    actions.toast(`${editTeacherForm.name.trim()} updated with Class ${editTeacherForm.sections.join(", ")}`, { tone: "success" });
     setEditingTeacher(null);
   };
 
@@ -198,7 +444,7 @@ export default function TeacherAssignment() {
                 <Th sticky>Teacher</Th>
                 <Th>Email</Th>
                 <Th>Subjects</Th>
-                <Th>Grades Taught</Th>
+                <Th>Assigned Classes &amp; Sections</Th>
                 <Th align="right">Active Exams</Th>
                 <Th align="right">Action</Th>
               </tr>
@@ -218,14 +464,25 @@ export default function TeacherAssignment() {
                   <Td>{t.email}</Td>
                   <Td>{t.subjects.join(", ")}</Td>
                   <Td>
-                    {t.grades?.length ? (
+                    {t.sections?.length ? (
+                      <span className="inline-flex flex-wrap gap-1">
+                        {t.sections.map((sec) => (
+                          <span
+                            key={sec}
+                            className="rounded bg-primary-soft px-1.5 py-0.5 text-xs font-semibold text-primary"
+                          >
+                            Class {sec}
+                          </span>
+                        ))}
+                      </span>
+                    ) : t.grades?.length ? (
                       <span className="inline-flex flex-wrap gap-1">
                         {t.grades.map((g) => (
                           <span key={g} className="rounded bg-subtle px-1.5 py-0.5 text-xs font-semibold text-ink-2">Class {g}</span>
                         ))}
                       </span>
                     ) : (
-                      <span className="text-ink-4">General</span>
+                      <span className="text-ink-4">All classes</span>
                     )}
                   </Td>
                   <Td align="right">{state.assessments.filter((a) => !a.archived && a.teacherIds.includes(t.id)).length}</Td>
@@ -290,7 +547,9 @@ export default function TeacherAssignment() {
                         <Avatar name={row.teacher.name} initials={row.teacher.initials} size="sm" />
                         <span>
                           <span className="block font-medium text-ink">{row.teacher.name}</span>
-                          <span className="text-xs text-ink-3">Class {row.teacher.grades?.join(", ") ?? "All"} · {row.teacher.subjects.join(", ")}</span>
+                          <span className="text-xs text-ink-3">
+                            {row.teacher.sections?.length ? `Class ${row.teacher.sections.join(", ")}` : `Class ${row.teacher.grades?.join(", ") ?? "All"}`} · {row.teacher.subjects.join(", ")}
+                          </span>
                         </span>
                       </span>
                     </Td>
@@ -362,8 +621,10 @@ export default function TeacherAssignment() {
                 <dd className="text-ink">{addedTeacher.subjects.join(", ")}</dd>
               </div>
               <div className="flex justify-between py-2">
-                <dt className="text-ink-3">Grades Taught</dt>
-                <dd className="text-ink font-semibold">Class {addedTeacher.grades?.join(", ") ?? "All"}</dd>
+                <dt className="text-ink-3">Assigned Classes &amp; Sections</dt>
+                <dd className="text-ink font-semibold">
+                  {addedTeacher.sections?.length ? addedTeacher.sections.map((s) => `Class ${s}`).join(", ") : `Class ${addedTeacher.grades?.join(", ") ?? "All"}`}
+                </dd>
               </div>
             </dl>
           </div>
@@ -376,32 +637,18 @@ export default function TeacherAssignment() {
               <Input id="t-email" type="email" value={tForm.email} invalid={!!tErrors.email} onChange={(e) => setT("email", e.target.value)} placeholder="name@greenfield.edu.in" />
             </Field>
 
-            {/* Requirement: Add Grade in Teacher Addition */}
-            <Field label="Grades / Classes Taught" error={tErrors.grades} helper="Select the grades/classes this teacher instructs">
-              <div className="flex flex-wrap gap-2 pt-1">
-                {ALL_GRADES.map((g) => {
-                  const on = tForm.grades.includes(g);
-                  return (
-                    <button
-                      key={g}
-                      type="button"
-                      onClick={() => {
-                        setTForm((f) => ({
-                          ...f,
-                          grades: on ? f.grades.filter((x) => x !== g) : [...f.grades, g].sort((a, b) => Number(a) - Number(b)),
-                        }));
-                        setTErrors((er) => ({ ...er, grades: "" }));
-                      }}
-                      className={cx(
-                        "rounded-md px-3 py-1.5 text-xs font-semibold border transition-colors",
-                        on ? "bg-primary text-white border-primary shadow-xs" : "bg-surface text-ink-2 border-border hover:bg-subtle"
-                      )}
-                    >
-                      Class {g}
-                    </button>
-                  );
-                })}
-              </div>
+            {/* Class + Section Multi-Selector */}
+            <Field label="Assigned Classes & Sections" error={tErrors.sections} helper="Select the specific class and section(s) this teacher instructs">
+              <ClassSectionPicker
+                selectedSections={tForm.sections}
+                availableGrades={availableClassSections}
+                onChange={(secs) => {
+                  const derivedGrades = Array.from(new Set(secs.map((s) => s.replace(/[^0-9]/g, "")))).filter(Boolean).sort((a, b) => Number(a) - Number(b));
+                  setTForm((f) => ({ ...f, sections: secs, grades: derivedGrades }));
+                  setTErrors((err) => ({ ...err, sections: "" }));
+                }}
+                error={tErrors.sections}
+              />
             </Field>
 
             <Field label="Subjects" error={tErrors.subjects} helper="Subjects matched to question papers and evaluation">
@@ -467,31 +714,17 @@ export default function TeacherAssignment() {
               />
             </Field>
 
-            <Field label="Grades / Classes Taught" error={editTeacherErrors.grades} helper="Select the grades/classes this teacher instructs">
-              <div className="flex flex-wrap gap-2 pt-1">
-                {ALL_GRADES.map((g) => {
-                  const on = editTeacherForm.grades.includes(g);
-                  return (
-                    <button
-                      key={g}
-                      type="button"
-                      onClick={() => {
-                        setEditTeacherForm((f) => ({
-                          ...f,
-                          grades: on ? f.grades.filter((x) => x !== g) : [...f.grades, g].sort((a, b) => Number(a) - Number(b)),
-                        }));
-                        setEditTeacherErrors((er) => ({ ...er, grades: "" }));
-                      }}
-                      className={cx(
-                        "rounded-md px-3 py-1.5 text-xs font-semibold border transition-colors",
-                        on ? "bg-primary text-white border-primary shadow-xs" : "bg-surface text-ink-2 border-border hover:bg-subtle"
-                      )}
-                    >
-                      Class {g}
-                    </button>
-                  );
-                })}
-              </div>
+            <Field label="Assigned Classes & Sections" error={editTeacherErrors.sections} helper="Select the specific class and section(s) this teacher instructs">
+              <ClassSectionPicker
+                selectedSections={editTeacherForm.sections}
+                availableGrades={availableClassSections}
+                onChange={(secs) => {
+                  const derivedGrades = Array.from(new Set(secs.map((s) => s.replace(/[^0-9]/g, "")))).filter(Boolean).sort((a, b) => Number(a) - Number(b));
+                  setEditTeacherForm((f) => ({ ...f, sections: secs, grades: derivedGrades }));
+                  setEditTeacherErrors((err) => ({ ...err, sections: "" }));
+                }}
+                error={editTeacherErrors.sections}
+              />
             </Field>
 
             <Field label="Subjects" error={editTeacherErrors.subjects} helper="Subjects taught by this teacher">
@@ -646,7 +879,9 @@ export default function TeacherAssignment() {
             <Select value={teacherId} onChange={(e) => setTeacherId(e.target.value)}>
               <option value="">Choose teacher</option>
               {teachers.map((t) => (
-                <option key={t.id} value={t.id}>{t.name} (Class {t.grades?.join(", ") ?? "All"}) · {t.subjects.join(", ")}</option>
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.sections?.length ? `Class ${t.sections.join(", ")}` : `Class ${t.grades?.join(", ") ?? "All"}`}) · {t.subjects.join(", ")}
+                </option>
               ))}
             </Select>
           </Field>
@@ -670,7 +905,9 @@ export default function TeacherAssignment() {
               <Avatar name={selectedTeacherRow.teacher.name} initials={selectedTeacherRow.teacher.initials} size="lg" />
               <div>
                 <p className="font-medium text-ink">{selectedTeacherRow.teacher.name}</p>
-                <p className="text-xs text-ink-3">{selectedTeacherRow.teacher.subjects.join(", ")} · Class {selectedTeacherRow.teacher.grades?.join(", ") ?? "All"}</p>
+                <p className="text-xs text-ink-3">
+                  {selectedTeacherRow.teacher.subjects.join(", ")} · {selectedTeacherRow.teacher.sections?.length ? `Class ${selectedTeacherRow.teacher.sections.join(", ")}` : `Class ${selectedTeacherRow.teacher.grades?.join(", ") ?? "All"}`}
+                </p>
               </div>
             </div>
             <dl className="divide-y divide-border rounded-md border border-border px-3">

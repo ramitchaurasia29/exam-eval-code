@@ -147,9 +147,15 @@ export default function Students() {
         }
       });
 
-    // 3. Faculty allocated to this grade in their profile roster
+    // 3. Faculty allocated to this grade and section in their profile roster
     state.users
-      .filter((u) => u.role === "teacher" && u.grades && u.grades.includes(targetGrade))
+      .filter((u) => {
+        if (u.role !== "teacher") return false;
+        if (u.sections && u.sections.length > 0) {
+          return u.sections.includes(`${targetGrade}${targetSection}`);
+        }
+        return Boolean(u.grades && u.grades.includes(targetGrade));
+      })
       .forEach((u) => {
         if (!teacherMap.has(u.id)) {
           teacherMap.set(u.id, { teacher: u, subjects: new Set(u.subjects), assessmentCount: 0 });

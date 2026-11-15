@@ -683,13 +683,15 @@ function useStoreImpl() {
       }));
       return { ok: true };
     };
-    const addTeacher = (input: { name: string; email: string; subjects: string[]; grades?: string[]; title?: string }): Result & { teacher?: User } => {
+    const addTeacher = (input: { name: string; email: string; subjects: string[]; grades?: string[]; sections?: string[]; title?: string }): Result & { teacher?: User } => {
       const email = input.email.trim().toLowerCase();
       if (ref.current.users.some((u) => u.email.toLowerCase() === email)) return { ok: false, error: "A user with this email already exists" };
       const initials = input.name.trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
-      const grades = input.grades?.length ? input.grades : ["9", "10"];
-      const teacher: User = { id: uid("u"), name: input.name.trim(), initials, role: "teacher", email, title: input.title?.trim() || `${input.subjects.join(" & ")} teacher`, subjects: input.subjects, grades };
-      set((s) => ({ ...s, users: [...s.users, teacher], audit: audit(s, { category: "access", action: "Added teacher", target: teacher.name, detail: `${teacher.email} · ${teacher.subjects.join(", ")} · Class ${grades.join(", ")}` }) }));
+      const sections = input.sections && input.sections.length > 0 ? input.sections : [];
+      const derivedGrades = Array.from(new Set(sections.map((s) => s.replace(/[^0-9]/g, "")))).filter(Boolean);
+      const grades = derivedGrades.length ? derivedGrades : (input.grades?.length ? input.grades : ["9", "10"]);
+      const teacher: User = { id: uid("u"), name: input.name.trim(), initials, role: "teacher", email, title: input.title?.trim() || `${input.subjects.join(" & ")} teacher`, subjects: input.subjects, grades, sections };
+      set((s) => ({ ...s, users: [...s.users, teacher], audit: audit(s, { category: "access", action: "Added teacher", target: teacher.name, detail: `${teacher.email} · ${teacher.subjects.join(", ")} · ${sections.length ? `Class ${sections.join(", ")}` : `Class ${grades.join(", ")}`}` }) }));
       return { ok: true, teacher };
     };
     const addStudent = (input: { name: string; grade: string; section: string; roll: number; city?: string; guardianName: string; relation: Guardian["relation"]; phone: string | null }): Result & { student?: Student } => {
@@ -779,9 +781,16 @@ function useStoreImpl() {
           return { ok: false, error: "A user with this email already exists" };
         }
       }
+      const updatedPatch = { ...patch };
+      if (patch.sections) {
+        const derivedGrades = Array.from(new Set(patch.sections.map((s) => s.replace(/[^0-9]/g, "")))).filter(Boolean);
+        if (derivedGrades.length) {
+          updatedPatch.grades = derivedGrades;
+        }
+      }
       set((s) => ({
         ...s,
-        users: s.users.map((u) => (u.id === id ? { ...u, ...patch, name: patch.name ? patch.name.trim() : u.name } : u)),
+        users: s.users.map((u) => (u.id === id ? { ...u, ...updatedPatch, name: updatedPatch.name ? updatedPatch.name.trim() : u.name } : u)),
         audit: audit(s, { category: "access", action: "Updated teacher", target: patch.name ?? existing.name }),
       }));
       return { ok: true };

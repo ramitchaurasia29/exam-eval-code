@@ -13,6 +13,7 @@ export interface User {
   title: string; // "Exam Cell Admin", "Science teacher"
   subjects: string[];
   grades: string[];
+  sections?: string[]; // e.g. ["8A", "9A", "9B", "10A", "10B"]
 }
 
 export type QType =
