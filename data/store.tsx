@@ -700,6 +700,46 @@ function useStoreImpl() {
       set((s) => ({ ...s, students: [...s.students, student], audit: audit(s, { category: "access", action: "Added student", target: `${student.name} · Class ${student.grade}${student.section} roll no ${student.roll}`, detail: `QR ${student.barcode}` }) }));
       return { ok: true, student };
     };
+    const addStudentsBulk = (studentsInput: Array<{ name: string; grade: string; section: string; roll: number; city?: string; guardianName: string; relation: Guardian["relation"]; phone: string | null }>): Result & { count: number; students: Student[] } => {
+      if (!studentsInput.length) return { ok: false, error: "No students provided", count: 0, students: [] };
+      const cur = ref.current.students;
+      let seq = cur.reduce((m, x) => Math.max(m, Number(x.barcode.slice(-5)) || 0), 0);
+      const newStudents: Student[] = [];
+      const usedKeys = new Set(cur.map((s) => `${s.grade}-${s.section}-${s.roll}`));
+
+      for (const input of studentsInput) {
+        let roll = input.roll;
+        while (usedKeys.has(`${input.grade}-${input.section}-${roll}`)) {
+          roll++;
+        }
+        usedKeys.add(`${input.grade}-${input.section}-${roll}`);
+        seq++;
+        const gradeClean = input.grade.replace(/[^0-9]/g, "") || input.grade;
+        const student: Student = {
+          id: uid("st"),
+          name: input.name,
+          grade: input.grade,
+          section: input.section,
+          roll,
+          city: input.city || ref.current.settings.city || "Bengaluru",
+          barcode: `GPS${gradeClean.padStart(2, "0")}${input.section}${String(seq).padStart(5, "0")}`,
+          guardian: { name: input.guardianName, relation: input.relation, phone: input.phone },
+        };
+        newStudents.push(student);
+      }
+
+      set((s) => ({
+        ...s,
+        students: [...s.students, ...newStudents],
+        audit: audit(s, {
+          category: "access",
+          action: "Bulk created class & enrolled students",
+          target: `${newStudents.length} students enrolled in Class ${studentsInput[0]?.grade}${studentsInput[0]?.section}`,
+          detail: `Class ${studentsInput[0]?.grade}${studentsInput[0]?.section} created with ${newStudents.length} students`,
+        }),
+      }));
+      return { ok: true, count: newStudents.length, students: newStudents };
+    };
     const updateStudent = (id: string, patch: Partial<Student>): Result => {
       const cur = ref.current.students;
       const existing = cur.find((s) => s.id === id);
@@ -1084,7 +1124,7 @@ function useStoreImpl() {
       generateAnswerKey, uploadManualKey, approveAnswerKey,
       generateRubric, regenerateRubricFor, setCriteria, approveRubric,
       startUpload, pauseBatch,
-      resolveUnmatched, addStudent, updateStudent, deleteStudent, addTeacher, updateTeacher, deleteTeacher, assignClassTeacher, lookupBarcode, discardUnmatched, reopenUnmatched, toggleAbsent,
+      resolveUnmatched, addStudent, addStudentsBulk, updateStudent, deleteStudent, addTeacher, updateTeacher, deleteTeacher, assignClassTeacher, lookupBarcode, discardUnmatched, reopenUnmatched, toggleAbsent,
       setQueuePaused, retryJobs,
       assign, setDeadline, remind,
       updateEval, acceptQuestion, acceptAllConfident, setGeneralFeedback, saveDraft, restoreSheet, verify, reopen,

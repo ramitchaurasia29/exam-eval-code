@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Upload, UserPlus, QrCode, Printer, Edit2, Trash2, Users, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Upload, UserPlus, QrCode, Printer, Edit2, Trash2, Users, AlertCircle, CheckCircle2, FolderPlus, Download, FileSpreadsheet, FileText, Check, Plus } from "lucide-react";
 import QrPrintDialog from "../components/QrPrintDialog";
 import { QRCodeSVG } from "qrcode.react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -7,7 +7,7 @@ import { Lifecycle } from "../components/booklet";
 import { useStore } from "../data/store";
 import { sheetTotal } from "../data/selectors";
 import type { Student, Guardian } from "../data/types";
-import { Button, Dialog, Drawer, Field, Input, EmptyState, ICON, Page, PageHeader, Panel, SearchInput, Select, StatusText, Switch, Table, Td, Th, Tr, Tag, cx } from "../components/ui";
+import { Button, Dialog, Drawer, Field, Input, EmptyState, ICON, Page, PageHeader, Panel, SearchInput, Select, StatusText, Switch, Table, Td, Th, Tr, Tag, Segmented, cx } from "../components/ui";
 
 const PAGE_SIZE = 50;
 
@@ -121,6 +121,165 @@ export default function Students() {
   const visible = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const [printIds, setPrintIds] = useState<string[] | null>(null);
+
+  // Create Class & Bulk Upload State
+  const [createClassOpen, setCreateClassOpen] = useState(false);
+  const [newClassGrade, setNewClassGrade] = useState("");
+  const [newClassSection, setNewClassSection] = useState("A");
+  const [newClassCity, setNewClassCity] = useState(state.settings.city || "Bengaluru");
+  const [bulkMode, setBulkMode] = useState<"paste" | "file">("paste");
+  const [uploadedFileName, setUploadedFileName] = useState("");
+  const [classErrors, setClassErrors] = useState<Record<string, string>>({});
+  const [rosterText, setRosterText] = useState(
+`1, Aarav Sharma, Ramesh Sharma, 9876543210, Father
+2, Ananya Patel, Priya Patel, 9876543211, Mother
+3, Devansh Verma, Sunita Verma, 9876543212, Mother
+4, Ishita Sen, Debashis Sen, 9876543213, Father
+5, Kabir Malhotra, Neha Malhotra, 9876543214, Mother
+6, Meera Kulkarni, Suresh Kulkarni, 9876543215, Father
+7, Rohan Joshi, Meenakshi Joshi, 9876543216, Mother
+8, Tanya Gupta, Rajesh Gupta, 9876543217, Father`
+  );
+
+  const parsedStudents = useMemo(() => {
+    if (!rosterText.trim()) return [];
+    const lines = rosterText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const result: Array<{
+      roll: number;
+      name: string;
+      guardianName: string;
+      phone: string | null;
+      relation: Guardian["relation"];
+    }> = [];
+
+    let autoRoll = 1;
+    for (const line of lines) {
+      if (/roll|student|name|guardian|phone/i.test(line) && /name/i.test(line)) {
+        continue;
+      }
+      const parts = line.split(/[,\t;]/).map((p) => p.trim());
+      if (!parts[0]) continue;
+
+      let roll = autoRoll;
+      let name = "";
+      let guardianName = "Parent";
+      let phone: string | null = null;
+      let relation: Guardian["relation"] = "Mother";
+
+      if (/^\d+$/.test(parts[0])) {
+        roll = parseInt(parts[0], 10);
+        name = parts[1] || `Student ${roll}`;
+        guardianName = parts[2] || "Guardian";
+        phone = parts[3] ? parts[3].replace(/[^\d+]/g, "") : null;
+        if (parts[4]) {
+          const rel = parts[4].toLowerCase();
+          if (rel.includes("father")) relation = "Father";
+          else if (rel.includes("mother")) relation = "Mother";
+          else relation = "Guardian";
+        }
+      } else {
+        name = parts[0];
+        roll = autoRoll;
+        guardianName = parts[1] || "Guardian";
+        phone = parts[2] ? parts[2].replace(/[^\d+]/g, "") : null;
+        if (parts[3]) {
+          const rel = parts[3].toLowerCase();
+          if (rel.includes("father")) relation = "Father";
+          else if (rel.includes("mother")) relation = "Mother";
+          else relation = "Guardian";
+        }
+      }
+
+      if (name.trim()) {
+        result.push({
+          roll,
+          name: name.trim(),
+          guardianName: guardianName.trim(),
+          phone: phone && phone.length >= 10 ? phone : null,
+          relation,
+        });
+        autoRoll = roll + 1;
+      }
+    }
+    return result;
+  }, [rosterText]);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadedFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (text) {
+        setRosterText(text);
+        setBulkMode("paste");
+        actions.toast(`Loaded ${file.name} successfully`, { tone: "success" });
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const downloadSampleCsv = () => {
+    const csvContent =
+      "RollNo,StudentName,GuardianName,GuardianPhone,Relation,City\n" +
+      "1,Aarav Sharma,Ramesh Sharma,9876543210,Father,Bengaluru\n" +
+      "2,Ananya Patel,Priya Patel,9876543211,Mother,Bengaluru\n" +
+      "3,Devansh Verma,Sunita Verma,9876543212,Mother,Bengaluru\n" +
+      "4,Ishita Sen,Debashis Sen,9876543213,Father,Bengaluru\n" +
+      "5,Kabir Malhotra,Neha Malhotra,9876543214,Mother,Bengaluru\n";
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `sample_student_roster_Class${newClassGrade || "11"}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const openCreateClass = () => {
+    setNewClassGrade("");
+    setNewClassSection("A");
+    setNewClassCity(state.settings.city || "Bengaluru");
+    setClassErrors({});
+    setCreateClassOpen(true);
+  };
+
+  const submitCreateClass = () => {
+    const errs: Record<string, string> = {};
+    const gradeClean = newClassGrade.trim().replace(/^Class\s*/i, "");
+    if (!gradeClean) errs.grade = "Write down a class (e.g. 11 or 12)";
+    const secClean = newClassSection.trim().toUpperCase();
+    if (!secClean) errs.section = "Enter a section (e.g. A, B, etc.)";
+    if (parsedStudents.length === 0) errs.students = "Add at least one student in the roster list";
+
+    setClassErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+
+    const studentsToEnroll = parsedStudents.map((st) => ({
+      name: st.name,
+      grade: gradeClean,
+      section: secClean,
+      roll: st.roll,
+      city: newClassCity.trim() || state.settings.city || "Bengaluru",
+      guardianName: st.guardianName,
+      relation: st.relation,
+      phone: st.phone,
+    }));
+
+    const res = actions.addStudentsBulk(studentsToEnroll);
+    if (!res.ok) {
+      setClassErrors({ general: res.error || "Failed to create class and enroll students" });
+      return;
+    }
+
+    actions.toast(`Class ${gradeClean}${secClean} created with ${res.count} students enrolled!`, { tone: "success" });
+    setCreateClassOpen(false);
+    setGrade(gradeClean);
+    setSection(secClean);
+  };
 
   // Add Student State
   const [addOpen, setAddOpen] = useState(false);
@@ -248,14 +407,13 @@ export default function Students() {
         meta={<span>{state.students.length.toLocaleString("en-IN")} total enrolled students · Exam Cell</span>}
         actions={
           <>
-            <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) actions.toast(`Selected ${f.name} for student import`, { tone: "neutral" }); e.target.value = ""; }} />
             <Button variant="secondary" icon={<Printer size={16} strokeWidth={ICON} />} onClick={() => setPrintIds(filtered.map((x) => x.id))}>
               Print QR codes
             </Button>
-            <Button variant="secondary" icon={<Upload size={16} strokeWidth={ICON} />} onClick={() => fileRef.current?.click()}>
-              Upload multiple students
+            <Button variant="primary" icon={<FolderPlus size={16} strokeWidth={ICON} />} onClick={openCreateClass}>
+              Create Class & Bulk Upload
             </Button>
-            <Button variant="primary" icon={<UserPlus size={16} strokeWidth={ICON} />} onClick={openAdd}>
+            <Button variant="secondary" icon={<UserPlus size={16} strokeWidth={ICON} />} onClick={openAdd}>
               Add student
             </Button>
           </>
@@ -338,6 +496,18 @@ export default function Students() {
               </div>
             );
           })}
+
+          {/* Create New Class Card */}
+          <div
+            onClick={openCreateClass}
+            className="cursor-pointer rounded-lg border-2 border-dashed border-primary/40 bg-primary-soft/20 p-3.5 transition-all hover:bg-primary-soft/50 hover:border-primary flex flex-col justify-between items-center text-center shadow-xs"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary mb-1">
+              <Plus size={18} strokeWidth={2.5} />
+            </div>
+            <p className="text-xs font-bold text-primary">Create New Class</p>
+            <span className="text-[11px] text-ink-3">Write class & bulk upload</span>
+          </div>
         </div>
 
         {/* Level 2: Section Bifurcation (Displayed when a grade is clicked/selected) */}
@@ -839,6 +1009,186 @@ export default function Students() {
             <p className="text-xs text-ink-3">
               This will permanently remove the student record and any associated answer sheets from the system. This action cannot be undone.
             </p>
+          </div>
+        </Dialog>
+      )}
+
+      {/* Create Class & Bulk Upload Students Dialog */}
+      {createClassOpen && (
+        <Dialog
+          open={createClassOpen}
+          onClose={() => setCreateClassOpen(false)}
+          title="Create Class & Bulk Upload Students"
+          size="lg"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setCreateClassOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                icon={<FolderPlus size={16} strokeWidth={ICON} />}
+                disabled={parsedStudents.length === 0 || !newClassGrade.trim()}
+                onClick={submitCreateClass}
+              >
+                Create Class & Enroll {parsedStudents.length} Students
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-5 text-sm">
+            {/* Step 1: Write down Class & Section */}
+            <div className="rounded-lg border border-border bg-subtle p-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-ink mb-3 flex items-center gap-1.5">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">1</span>
+                Write down Class & Section Details
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Field label="Class / Grade" htmlFor="new-class-grade" error={classErrors.grade} helper="e.g. 11, 12, 6, 7th">
+                  <Input
+                    id="new-class-grade"
+                    placeholder="e.g. 11"
+                    value={newClassGrade}
+                    onChange={(e) => {
+                      setNewClassGrade(e.target.value);
+                      if (classErrors.grade) setClassErrors((prev) => ({ ...prev, grade: "" }));
+                    }}
+                  />
+                </Field>
+                <Field label="Section" htmlFor="new-class-section" error={classErrors.section} helper="e.g. A, B, Science, Commerce">
+                  <Input
+                    id="new-class-section"
+                    placeholder="e.g. A"
+                    value={newClassSection}
+                    onChange={(e) => {
+                      setNewClassSection(e.target.value.toUpperCase());
+                      if (classErrors.section) setClassErrors((prev) => ({ ...prev, section: "" }));
+                    }}
+                  />
+                </Field>
+                <Field label="City / Location" htmlFor="new-class-city" helper="Default exam centre">
+                  <Input
+                    id="new-class-city"
+                    placeholder="e.g. Bengaluru"
+                    value={newClassCity}
+                    onChange={(e) => setNewClassCity(e.target.value)}
+                  />
+                </Field>
+              </div>
+            </div>
+
+            {/* Step 2: Upload Student Data in Bulk */}
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">2</span>
+                  Upload Student Data in Bulk
+                </h3>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="ghost" icon={<Download size={14} />} onClick={downloadSampleCsv}>
+                    Download Sample CSV
+                  </Button>
+                  <Segmented
+                    size="sm"
+                    items={[
+                      { id: "paste", label: "Paste / Edit Roster", icon: <FileText size={14} /> },
+                      { id: "file", label: "Upload File (.csv, .xlsx)", icon: <FileSpreadsheet size={14} /> },
+                    ]}
+                    value={bulkMode}
+                    onChange={(v) => setBulkMode(v)}
+                  />
+                </div>
+              </div>
+
+              {bulkMode === "file" ? (
+                <div className="space-y-3">
+                  <label
+                    htmlFor="bulk-roster-file"
+                    className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border-strong bg-subtle px-4 py-6 text-center hover:bg-muted/70 transition-colors"
+                  >
+                    <Upload size={24} className="mb-2 text-primary" />
+                    <span className="text-sm font-semibold text-ink">Click to upload or drag & drop CSV / Excel file</span>
+                    <span className="mt-1 text-xs text-ink-3">Supported formats: .csv, .txt, .xlsx, .xls</span>
+                    <input
+                      id="bulk-roster-file"
+                      type="file"
+                      accept=".csv,.txt,.xlsx,.xls"
+                      className="sr-only"
+                      onChange={handleFileUpload}
+                    />
+                  </label>
+                  {uploadedFileName && (
+                    <p className="text-xs text-success flex items-center gap-1 font-medium">
+                      <Check size={14} /> Loaded {uploadedFileName} ({parsedStudents.length} students detected)
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-ink-3">
+                    <span>One student per line: <code className="bg-muted px-1 py-0.5 rounded text-[11px]">Roll, Student Name, Guardian Name, Phone, Relation</code></span>
+                    <span>{parsedStudents.length} students parsed</span>
+                  </div>
+                  <textarea
+                    rows={6}
+                    value={rosterText}
+                    onChange={(e) => setRosterText(e.target.value)}
+                    placeholder="1, Aarav Sharma, Ramesh Sharma, 9876543210, Father&#10;2, Ananya Patel, Priya Patel, 9876543211, Mother"
+                    className="w-full rounded-md border border-border bg-surface p-2.5 font-mono text-xs text-ink focus:outline-none focus:ring-2 focus:ring-primary-ring/60 leading-relaxed"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Step 3: Live Parsed Preview Table */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-ink-2">
+                  Live Preview: {parsedStudents.length} Students to be Enrolled in Class {newClassGrade || "..."}{newClassSection ? `-${newClassSection}` : ""}
+                </span>
+                {classErrors.students && (
+                  <span className="text-xs text-danger font-medium">{classErrors.students}</span>
+                )}
+                {classErrors.general && (
+                  <span className="text-xs text-danger font-medium">{classErrors.general}</span>
+                )}
+              </div>
+
+              {parsedStudents.length > 0 ? (
+                <div className="max-h-48 overflow-y-auto rounded-md border border-border">
+                  <Table>
+                    <thead>
+                      <tr>
+                        <Th>Roll</Th>
+                        <Th>Student Name</Th>
+                        <Th>Class-Sec</Th>
+                        <Th>Guardian</Th>
+                        <Th>Phone</Th>
+                        <Th>Barcode Preview</Th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parsedStudents.map((st, idx) => (
+                        <Tr key={idx}>
+                          <Td className="tabular-nums font-semibold">{st.roll}</Td>
+                          <Td className="font-medium text-ink">{st.name}</Td>
+                          <Td>Class {newClassGrade || "11"}{newClassSection || "A"}</Td>
+                          <Td>{st.guardianName} ({st.relation})</Td>
+                          <Td className="tabular-nums">{st.phone || <span className="text-warning text-xs">Missing</span>}</Td>
+                          <Td className="font-mono text-xs text-ink-3">
+                            GPS{(newClassGrade || "11").padStart(2, "0")}{newClassSection || "A"}...
+                          </Td>
+                        </Tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-ink-3">
+                  No students in roster yet. Write or upload student data above to preview.
+                </div>
+              )}
+            </div>
           </div>
         </Dialog>
       )}
