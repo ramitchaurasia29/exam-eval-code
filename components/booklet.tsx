@@ -248,7 +248,7 @@ export function ScanPage({
             <p className="truncate">{assessment.name} · Class {assessment.grade} {student.section}</p>
           </div>
           <div className="text-right">
-            {page === 1 && !thumb ? <Barcode value={student.barcode} height={40} showShortCode /> : <span className="font-mono">Page {page}</span>}
+            {page === 1 && !thumb ? <Barcode value={student.barcode} height={40} /> : <span className="font-mono">Page {page}</span>}
           </div>
         </div>
 

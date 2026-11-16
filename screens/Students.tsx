@@ -103,8 +103,8 @@ export default function Students() {
   // When an individual grade is selected, "all sections" is removed - default to the grade's first section
   const activeSection = selectedGradeCohort
     ? (section !== "all" && selectedGradeCohort.sectionList.some((s) => s.section === section)
-        ? section
-        : (selectedGradeCohort.sectionList[0]?.section || "A"))
+      ? section
+      : (selectedGradeCohort.sectionList[0]?.section || "A"))
     : section;
 
   // Retrieve subject teachers teaching this specific class and section
@@ -477,13 +477,13 @@ export default function Students() {
   const copies = selected ? state.sheets.filter((s) => s.studentId === selected.id) : [];
   const meta = selected
     ? [
-        ["Class & Section", `Class ${selected.grade}${selected.section}`],
-        ["Roll number", String(selected.roll)],
-        ["City / Location", selected.city || state.settings.city || "Bengaluru"],
-        ["QR Barcode ID", selected.barcode],
-        ["Guardian", `${selected.guardian.name} (${selected.guardian.relation})`],
-        ["Phone", selected.guardian.phone ?? "Missing"],
-      ]
+      ["Class & Section", `Class ${selected.grade}${selected.section}`],
+      ["Roll number", String(selected.roll)],
+      ["City / Location", selected.city || state.settings.city || "Bengaluru"],
+      ["QR Barcode ID", selected.barcode],
+      ["Guardian", `${selected.guardian.name} (${selected.guardian.relation})`],
+      ["Phone", selected.guardian.phone ?? "Missing"],
+    ]
     : [];
 
   return (
