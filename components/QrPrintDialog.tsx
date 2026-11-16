@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Printer, FileText } from "lucide-react";
+import { Printer, FileText, Grid } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import type { Student } from "../data/types";
 import { useStore } from "../data/store";
@@ -11,8 +11,13 @@ import { Button, Checkbox, ICON, SearchInput, Select, cx } from "./ui";
 const PAGE_W = 794;
 const PAGE_H = 1123;
 const PAD = 40;
+const LAYOUTS = { 2: { rows: 5, qr: 130 }, 3: { rows: 6, qr: 100 }, 4: { rows: 8, qr: 75 } } as const;
+type Cols = keyof typeof LAYOUTS;
+type PrintMode = "single" | "stickers";
 
 interface PrintOptions {
+  mode: PrintMode;
+  cols: Cols;
   examName: string;
   schoolName: string;
   city: string;
@@ -74,10 +79,37 @@ function SingleCoverSheet({ student, opts, index, total }: { student: Student; o
   );
 }
 
+/** Sticker Sheet (Multiple Stickers per A4 Page - with short code removed) */
+function StickerSheet({ students, opts, index, pages }: { students: Student[]; opts: PrintOptions; index: number; pages: number }) {
+  const { rows, qr } = LAYOUTS[opts.cols];
+  return (
+    <div className="relative bg-white text-black print:m-0" style={{ width: PAGE_W, height: PAGE_H, padding: PAD, breakAfter: "page", boxSizing: "border-box" }}>
+      <div className="grid h-full" style={{ gridTemplateColumns: `repeat(${opts.cols}, 1fr)`, gridTemplateRows: `repeat(${rows}, 1fr)` }}>
+        {students.map((s) => {
+          const city = s.city || opts.city || "Bengaluru";
+          return (
+            <div key={s.id} className="flex flex-col items-center justify-center gap-0.5 border border-dashed border-neutral-300 p-2 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-tight text-neutral-800 truncate max-w-full">{opts.schoolName}</p>
+              <QRCodeSVG value={s.barcode} size={qr} level="M" marginSize={0} fgColor="#000" bgColor="#fff" />
+              <p className="max-w-full truncate text-[12px] font-bold leading-tight mt-0.5">{s.name}</p>
+              <p className="text-[10px] leading-tight text-neutral-700">Class {s.grade}{s.section} · Roll {s.roll} · {city}</p>
+              <p className="text-[9px] font-medium text-neutral-600 truncate max-w-full">{opts.examName}</p>
+              <p className="font-mono text-[9px] leading-tight tracking-wider text-neutral-800 font-semibold">{s.barcode}</p>
+            </div>
+          );
+        })}
+      </div>
+      <span className="absolute bottom-3 right-5 text-[9px] text-neutral-400">Page {index + 1} of {pages}</span>
+    </div>
+  );
+}
+
 export default function QrPrintDialog({ students, initialIds, onClose }: { students: Student[]; initialIds: string[]; onClose: () => void }) {
   const { state } = useStore();
   const [selected, setSelected] = useState<Set<string>>(() => new Set(initialIds));
   const [query, setQuery] = useState("");
+  const [mode, setMode] = useState<PrintMode>("single");
+  const [cols, setCols] = useState<Cols>(3);
 
   // Four Filters: 1. Exam Type, 2. Subject, 3. Class, 4. Section
   const [examType, setExamType] = useState("all");
@@ -125,6 +157,8 @@ export default function QrPrintDialog({ students, initialIds, onClose }: { stude
   const city = state.settings.city || "Bengaluru";
 
   const opts: PrintOptions = {
+    mode,
+    cols,
     examName: activeExamName,
     schoolName,
     city,
@@ -178,7 +212,17 @@ export default function QrPrintDialog({ students, initialIds, onClose }: { stude
   }, [students, query, grade, section, examType, subject, state.assessments]);
 
   const chosen = useMemo(() => students.filter((s) => selected.has(s.id)), [students, selected]);
-  const pages = chosen.length;
+  const perPage = mode === "single" ? 1 : cols * LAYOUTS[cols].rows;
+  const pages = Math.max(1, Math.ceil(chosen.length / perPage));
+
+  const pageSlices = useMemo(() => {
+    if (mode === "single") return [];
+    const res: Student[][] = [];
+    for (let i = 0; i < chosen.length; i += perPage) {
+      res.push(chosen.slice(i, i + perPage));
+    }
+    return res;
+  }, [chosen, mode, perPage]);
 
   const allVisible = list.length > 0 && list.every((s) => selected.has(s.id));
   const someVisible = list.some((s) => selected.has(s.id));
@@ -197,7 +241,7 @@ export default function QrPrintDialog({ students, initialIds, onClose }: { stude
         <div className="flex items-center gap-2">
           <Button onClick={onClose}>Close</Button>
           <Button variant="primary" icon={<Printer size={16} strokeWidth={ICON} />} disabled={chosen.length === 0} onClick={() => window.print()}>
-            Print {chosen.length > 0 ? `${chosen.length} Cover Page${chosen.length === 1 ? "" : "s"}` : ""}
+            Print {chosen.length > 0 ? `${pages} ${mode === "single" ? (pages === 1 ? "Cover Page" : "Cover Pages") : (pages === 1 ? "Sticker Page" : "Sticker Pages")}` : ""}
           </Button>
         </div>
       </header>
@@ -281,14 +325,41 @@ export default function QrPrintDialog({ students, initialIds, onClose }: { stude
           </ul>
         </section>
 
-        {/* Right: Preview */}
+        {/* Right: Preview & Format Options */}
         <section className="flex min-h-0 flex-col bg-subtle">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface px-4 py-2.5 text-[13px]">
-            <div className="flex items-center gap-2 text-xs font-semibold text-ink">
-              <FileText size={15} className="text-primary" />
-              <span>Booklet Cover Pages (1 Student per A4 page)</span>
+          <div className="flex flex-wrap items-center gap-3 border-b border-border bg-surface px-4 py-2.5 text-[13px]">
+            {/* Mode Selector */}
+            <div className="flex items-center gap-1 rounded-md bg-subtle p-0.5 border border-border">
+              <button
+                type="button"
+                onClick={() => setMode("single")}
+                className={cx("flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors", mode === "single" ? "bg-primary text-white shadow-xs" : "text-ink-2 hover:text-ink")}
+              >
+                <FileText size={13} strokeWidth={ICON} />
+                1 Student Per Page (Booklet Cover)
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("stickers")}
+                className={cx("flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors", mode === "stickers" ? "bg-primary text-white shadow-xs" : "text-ink-2 hover:text-ink")}
+              >
+                <Grid size={13} strokeWidth={ICON} />
+                Sticker Sheet (Multi per page)
+              </button>
             </div>
-            <span className="text-xs text-ink-3 font-medium">
+
+            {mode === "stickers" && (
+              <label className="flex items-center gap-1.5 text-xs text-ink-2">
+                Cols:
+                <Select aria-label="Stickers per row" className="w-16 text-xs" value={cols} onChange={(e) => setCols(Number(e.target.value) as Cols)}>
+                  <option value={2}>2</option>
+                  <option value={3}>3</option>
+                  <option value={4}>4</option>
+                </Select>
+              </label>
+            )}
+
+            <span className="ml-auto text-xs text-ink-3 font-medium">
               {chosen.length} {chosen.length === 1 ? "student" : "students"} · {pages} {pages === 1 ? "A4 page" : "A4 pages"}
             </span>
           </div>
@@ -300,11 +371,19 @@ export default function QrPrintDialog({ students, initialIds, onClose }: { stude
                 <p className="text-sm font-medium text-ink">No students selected</p>
                 <p className="mt-1 text-[13px] text-ink-3">Select students on the left to preview the printed document.</p>
               </div>
-            ) : (
+            ) : mode === "single" ? (
               chosen.map((student, i) => (
                 <div key={student.id} className="mx-auto mb-6 overflow-hidden rounded-sm shadow-md ring-1 ring-border" style={{ width: PAGE_W * scale, height: PAGE_H * scale }}>
                   <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", width: PAGE_W, height: PAGE_H }}>
                     <SingleCoverSheet student={student} opts={opts} index={i} total={chosen.length} />
+                  </div>
+                </div>
+              ))
+            ) : (
+              pageSlices.map((slice, i) => (
+                <div key={i} className="mx-auto mb-6 overflow-hidden rounded-sm shadow-md ring-1 ring-border" style={{ width: PAGE_W * scale, height: PAGE_H * scale }}>
+                  <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", width: PAGE_W, height: PAGE_H }}>
+                    <StickerSheet students={slice} opts={opts} index={i} pages={pages} />
                   </div>
                 </div>
               ))
@@ -316,9 +395,9 @@ export default function QrPrintDialog({ students, initialIds, onClose }: { stude
       {/* Print-only copy at true page size, outside the app shell */}
       {createPortal(
         <div className={cx("qr-print-root")}>
-          {chosen.map((student, i) => (
-            <SingleCoverSheet key={student.id} student={student} opts={opts} index={i} total={chosen.length} />
-          ))}
+          {mode === "single" 
+            ? chosen.map((student, i) => <SingleCoverSheet key={student.id} student={student} opts={opts} index={i} total={chosen.length} />)
+            : pageSlices.map((slice, i) => <StickerSheet key={i} students={slice} opts={opts} index={i} pages={pages} />)}
         </div>,
         document.body,
       )}
