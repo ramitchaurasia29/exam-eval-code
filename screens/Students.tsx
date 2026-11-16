@@ -582,18 +582,6 @@ export default function Students() {
               </div>
             );
           })}
-
-          {/* Create New Class Card */}
-          <div
-            onClick={openCreateClass}
-            className="cursor-pointer rounded-lg border-2 border-dashed border-primary/40 bg-primary-soft/20 p-3.5 transition-all hover:bg-primary-soft/50 hover:border-primary flex flex-col justify-between items-center text-center shadow-xs"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary mb-1">
-              <Plus size={18} strokeWidth={2.5} />
-            </div>
-            <p className="text-xs font-bold text-primary">Create New Class</p>
-            <span className="text-[11px] text-ink-3">Write class & bulk upload</span>
-          </div>
         </div>
 
         {/* Level 2: Section Bifurcation (Displayed when a grade is clicked/selected) */}
